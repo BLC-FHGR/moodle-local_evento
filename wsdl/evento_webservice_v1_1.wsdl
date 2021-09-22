@@ -269,6 +269,7 @@
                     <xs:element minOccurs="0" name="person_URL" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="person_Vorname2" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="person_Zusatz1" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="person_Zusatz6" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="person_eMail2" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="personeMail" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="personenStatus" nillable="true" type="ax21:EventoStatus"/>
