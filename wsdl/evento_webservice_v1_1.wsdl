@@ -1,3 +1,4 @@
+
 <?xml version="1.0" encoding="UTF-8"?>
 <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:ns="http://service.webservice.htwchur.ch" xmlns:ax23="http://ldap.htwchur.ch/xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ax21="http://domain.hibernate.htwchur.ch/xsd" xmlns:ns1="http://org.apache.axis2/xsd" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:wsaw="http://www.w3.org/2006/05/addressing/wsdl" targetNamespace="http://service.webservice.htwchur.ch">
     <wsdl:documentation>EventoWebservice</wsdl:documentation>
@@ -149,6 +150,7 @@
                     <xs:element minOccurs="0" name="accountStatusDisabled" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="changed" nillable="true" type="xs:dateTime"/>
                     <xs:element minOccurs="0" name="created" nillable="true" type="xs:dateTime"/>
+                    <xs:element minOccurs="0" name="description" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="hasSeveralAccounts" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="idPerson" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="isEmployeeAccount" nillable="true" type="xs:int"/>
@@ -388,10 +390,12 @@
                     <xs:element minOccurs="0" name="anlassVeranstalter" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="anlassVorlage" nillable="true" type="xs:boolean"/>
                     <xs:element minOccurs="0" name="anlass_ECTS" nillable="true" type="xs:float"/>
+                    <xs:element minOccurs="0" name="anlass_EngTextMemo8" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="anlass_IDAnlassStudiengang" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="anlass_Modulart" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="anlass_NurFuerGruppenbildung" nillable="true" type="xs:boolean"/>
                     <xs:element minOccurs="0" name="anlass_Veranstalter" nillable="true" type="ax21:EventoBenutzer"/>
+                    <xs:element minOccurs="0" name="anlass_Zusatz15" nillable="true" type="xs:int"/>
                     <xs:element maxOccurs="unbounded" minOccurs="0" name="array_EventoAnlassLeitung" nillable="true" type="ax21:EventoAnlassLeitung"/>
                     <xs:element minOccurs="0" name="erfassung" nillable="true" type="xs:dateTime"/>
                     <xs:element minOccurs="0" name="erfassungVon" nillable="true" type="xs:string"/>
