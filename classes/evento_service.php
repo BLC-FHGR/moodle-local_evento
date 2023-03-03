@@ -68,15 +68,15 @@ class local_evento_evento_service {
         try {
             $request['theLimitationFilter2']['theMaxResultsValue'] = 10;
             $result = $this->client->listEventoAnlassTyp($request);
-            return array_key_exists("return", $result) ? true : null;
+            return property_exists($result, "return") ? true : null;
         } catch (SoapFault $fault) {
             debugging("Error, the init webservice call to evento failed: ". $fault->__toString());
             return false;
         } catch (Exception $ex) {
-            debugging("Error, the init webservice call to evento failed: {$ex->message}");
+            debugging("Error, the init webservice call to evento failed: {$ex->getMessage()}");
             return false;
         } catch (Throwable $ex) {
-            debugging("Error, the init webservice call to evento failed: {$ex->message}");
+            debugging("Error, the init webservice call to evento failed: {$ex->getMessage()}");
             return false;
         }
     }
@@ -92,8 +92,7 @@ class local_evento_evento_service {
         // To limit the response size if something went wrong.
         $request['theLimitationFilter2']['theMaxResultsValue'] = 10000;
         $result = $this->client->listEventoAnlass($request);
-
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result, "return") ? $result->return : null;
     }
 
     /**
@@ -114,7 +113,7 @@ class local_evento_evento_service {
         !empty($limitationfilter2->sortfield) ? $request['theLimitationFilter2']['theSortField'] = $limitationfilter2->sortfield : null;
         $result = $this->client->listEventoAnlass($request);
 
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result,"return") ? $result->return : null;
     }
 
     /**
@@ -129,7 +128,7 @@ class local_evento_evento_service {
         $request['theLimitationFilter2']['theMaxResultsValue'] = 1000;
         $result = $this->client->listEventoPersonenAnmeldung($request);
 
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result,"return") ? $result->return : null;
     }
 
     /**
@@ -144,7 +143,7 @@ class local_evento_evento_service {
         $request['theLimitationFilter2']['theMaxResultsValue'] = 10;
         $result = $this->client->listEventoPerson($request);
 
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result,"return") ? $result->return : null;
     }
 
     /**
@@ -161,8 +160,8 @@ class local_evento_evento_service {
         // To limit the response size if something went wrong.
         $request['theEventoLimitatinFilter1']['theMaxResultsValue'] = 10;
         $result = $this->client->listAdAccount($request);
-        // Filter result.
-        if (array_key_exists("return", $result) && is_array($result->return)) {
+        // Filter result. 
+        if (property_exists($result,"return") && is_array($result->return)) {
             if (!empty($isactive)) {
                 $result->return = array_filter($result->return,
                                     function ($var) {
@@ -179,7 +178,7 @@ class local_evento_evento_service {
             }
         }
 
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result,"return") ? $result->return : null;
     }
 
     /**
@@ -195,7 +194,7 @@ class local_evento_evento_service {
         $request['theEventoLimitatinFilter1']['theMaxResultsValue'] = 30000;
         $result = $this->client->listAdAccount($request);
         // Filter result.
-        if (array_key_exists("return", $result) && is_array($result->return)) {
+        if (property_exists($result,"return") && is_array($result->return)) {
             if (!empty($isactive)) {
                 $result->return = array_filter($result->return,
                                     function ($var) {
@@ -205,7 +204,7 @@ class local_evento_evento_service {
             }
         }
 
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result,"return") ? $result->return : null;
     }
 
     /**
@@ -221,7 +220,7 @@ class local_evento_evento_service {
         $request['theEventoLimitatinFilter1']['theMaxResultsValue'] = 30000;
         $result = $this->client->listAdAccount($request);
         // Filter result.
-        if (array_key_exists("return", $result) && is_array($result->return)) {
+        if (property_exists($result,"return") && is_array($result->return)) {
             if (!empty($isactive)) {
                 $result->return = array_filter($result->return,
                                     function ($var) {
@@ -231,7 +230,7 @@ class local_evento_evento_service {
             }
         }
 
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result,"return") ? $result->return : null;
     }
 
     /**
@@ -247,7 +246,7 @@ class local_evento_evento_service {
         $request['theEventoLimitatinFilter1']['theMaxResultsValue'] = 30000;
         $result = $this->client->listAdAccount($request);
         // Filter result.
-        if (array_key_exists("return", $result) && is_array($result->return)) {
+        if (property_exists($result,"return") && is_array($result->return)) {
             if (!empty($isactive)) {
                 $result->return = array_filter($result->return,
                                     function ($var) {
@@ -257,7 +256,7 @@ class local_evento_evento_service {
             }
         }
 
-        return array_key_exists("return", $result) ? $result->return : null;
+        return property_exists($result,"return") ? $result->return : null;
     }
 
     /**
