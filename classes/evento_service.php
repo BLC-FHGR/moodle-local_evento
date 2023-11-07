@@ -105,6 +105,7 @@ class local_evento_evento_service {
         // Set request filter.
         !empty($eventoanlassfilter->anlassnummer) ? $request['theEventoAnlassFilter']['anlassNummer'] = $eventoanlassfilter->anlassnummer : null;
         !empty($eventoanlassfilter->idanlasstyp) ? $request['theEventoAnlassFilter']['idAnlassTyp'] = $eventoanlassfilter->idanlasstyp : null;
+        !empty($eventoanlassfilter->idAnlass) ? $request['theEventoAnlassFilter']['idAnlass'] = $eventoanlassfilter->idAnlass : null;
         // To limit the response size if something went wrong.
         !empty($limitationfilter2->themaxresultvalue) ? $request['theLimitationFilter2']['theMaxResultsValue'] = $limitationfilter2->themaxresultvalue : null;
         !empty($limitationfilter2->thefromdate) ? $request['theLimitationFilter2']['theFromDate'] = $limitationfilter2->thefromdate : null;
@@ -332,6 +333,8 @@ class local_evento_eventoanlassfilter {
     public $anlassnummer = null;
     /** @var int */
     public $idanlasstyp = null;
+    ** @var int */
+    public $idAnlass = null;
 }
 
 /**
