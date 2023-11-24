@@ -99,12 +99,14 @@ class local_evento_evento_service {
      * Obtains events by filters
      * @param local_evento_eventoanlassfilter $eventoanlassfilter the evento event-number like "mod.bspEA2.HS16_BS.001"
      * @param local_evento_limitationfilter2 $limitationfilter2 filter for response limitation
-     * @return stdClass event object "EventoAnlass" definied in the wsdl
+     * @return array|stdClass event object "EventoAnlass" definied in the wsdl
      */
     public function get_events_by_filter(local_evento_eventoanlassfilter $eventoanlassfilter, local_evento_limitationfilter2 $limitationfilter2) {
         // Set request filter.
         !empty($eventoanlassfilter->anlassnummer) ? $request['theEventoAnlassFilter']['anlassNummer'] = $eventoanlassfilter->anlassnummer : null;
         !empty($eventoanlassfilter->idanlasstyp) ? $request['theEventoAnlassFilter']['idAnlassTyp'] = $eventoanlassfilter->idanlasstyp : null;
+        !empty($eventoanlassfilter->idAnlass) ? $request['theEventoAnlassFilter']['idAnlass'] = $eventoanlassfilter->idAnlass : null;
+        !empty($eventoanlassfilter->idAnlassStatus) ? $request['theEventoAnlassFilter']['idAnlassStatus'] = $eventoanlassfilter->idAnlassStatus : null;
         // To limit the response size if something went wrong.
         !empty($limitationfilter2->themaxresultvalue) ? $request['theLimitationFilter2']['theMaxResultsValue'] = $limitationfilter2->themaxresultvalue : null;
         !empty($limitationfilter2->thefromdate) ? $request['theLimitationFilter2']['theFromDate'] = $limitationfilter2->thefromdate : null;
@@ -332,6 +334,10 @@ class local_evento_eventoanlassfilter {
     public $anlassnummer = null;
     /** @var int */
     public $idanlasstyp = null;
+    /** @var int */
+    public $idAnlass = null;
+    /** @var int */
+    public $idAnlassStatus = null;
 }
 
 /**
