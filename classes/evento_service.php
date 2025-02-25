@@ -19,6 +19,9 @@ class local_evento_evento_service {
     
     /** @var SoapClient SOAP client instance */
     private $client;
+
+    /** @var progress_trace Trace for debugging */
+    private $trace;
     
     /** @var int Maximum retries for SOAP requests */
     private const MAX_RETRIES = 3;
@@ -40,10 +43,11 @@ class local_evento_evento_service {
      * @param SoapClient|null $client Optional SOAP client for testing
      * @param object|null $config Optional config for testing
      */
-    public function __construct($client = null, $config = null) {
+    public function __construct($client = null, $config = null, $trace = null) {
         global $CFG;
         
         $this->config = $config ?? get_config('local_evento');
+        $this->trace = $trace ?? new null_progress_trace();
         
         if (!$client) {
             $options = [
@@ -67,6 +71,15 @@ class local_evento_evento_service {
         } else {
             $this->client = $client;
         }
+    }
+
+    /**
+     * Set trace instance
+     * 
+     * @param progress_trace $trace Trace instance
+     */
+    public function set_trace($trace) {
+        $this->trace = $trace;
     }
 
     /**
@@ -148,6 +161,38 @@ class local_evento_evento_service {
             $attempts
         );
         mtrace($message);
+    }
+
+    /**
+     * Get event by ID with improved error handling
+     * 
+     * @param int $eventid The evento event ID
+     * @return stdClass|null Event object
+     */
+    public function get_event_by_id($eventid) {
+        try {
+            $request = [
+                'theEventoAnlassFilter' => ['idAnlass' => $eventid],
+                'theLimitationFilter2' => ['theMaxResultsValue' => 10]
+            ];
+            
+            $result = $this->execute_soap_request(
+                'listEventoAnlass',
+                $request,
+                "Fetching event ID {$eventid}"
+            );
+            
+            if (!property_exists($result, "return")) {
+                mtrace("No event found for ID {$eventid}");
+                return null;
+            }
+            
+            return is_array($result->return) ? reset($result->return) : $result->return;
+            
+        } catch (Exception $e) {
+            mtrace("Error fetching event {$eventid}: " . $e->getMessage());
+            return null;
+        }
     }
 
     /**
@@ -505,11 +550,6 @@ class local_evento_evento_service {
         return [$value];
     }
 
-
-
-
-
-
     /**
      * Get all active Veranstalter from Evento using the OE endpoint
      * Used during course creation to determine category structure
@@ -636,76 +676,41 @@ class local_evento_evento_service {
     public function get_events_by_veranstalter_years(string $veranstalter): array {
         $currentYear = (int)date('Y');
         $nextYear = $currentYear + 1;
-        mtrace("Retrieving events for Veranstalter {$veranstalter} for years {$currentYear} and {$nextYear}");
+        
+        $this->trace->output("Fetching events for years {$currentYear} and {$nextYear}");
         
         try {
-            $request = [
-                'theEventoAnlassFilter' => [
-                    'anlassVeranstalter' => $veranstalter,
-                    'anlassVorlage' => false
-                ],
-                'theLimitationFilter2' => [
-                    'theMaxResultsValue' => self::BATCH_SIZE
-                ]
-            ];
+            $allEvents = $this->get_events_by_veranstalter($veranstalter);
             
-            $result = $this->execute_soap_request(
-                'listEventoAnlass',
-                $request,
-                "Fetching events for Veranstalter {$veranstalter}"
-            );
-            
-            if (!property_exists($result, "return")) {
-                mtrace("No events found for Veranstalter {$veranstalter}");
-                return [];
-            }
-            
-            $allEvents = self::to_array($result->return);
-            
-            // Filter events by year
+            // Debug event filtering
             $filteredEvents = array_filter($allEvents, function($event) use ($currentYear, $nextYear) {
                 if (empty($event->anlassDatumVon)) {
+                    $this->trace->output("Event {$event->anlassNummer} has no start date");
                     return false;
                 }
                 
                 try {
                     $eventDate = new DateTime($event->anlassDatumVon);
-                    print_r($eventDate);
-                    print_r("\n");
                     $eventYear = (int)$eventDate->format('Y');
-                    return $eventYear === $currentYear || $eventYear === $nextYear;
+                    $include = $eventYear === $currentYear || $eventYear === $nextYear;
+                    
+                    $this->trace->output("Event {$event->anlassNummer}:");
+                    $this->trace->output("- Date: " . $eventDate->format('Y-m-d'));
+                    $this->trace->output("- Include: " . ($include ? 'yes' : 'no'));
+                    
+                    return $include;
                 } catch (Exception $e) {
-                    // If we can't parse the date, exclude the event
+                    $this->trace->output("Error parsing date for event {$event->anlassNummer}");
                     return false;
                 }
-            });
-            
-            mtrace(sprintf(
-                "Retrieved %d total events, filtered to %d events for years %d/%d for Veranstalter %s",
-                count($allEvents),
-                count($filteredEvents),
-                $currentYear,
-                $nextYear,
-                $veranstalter
-            ));
-            
-            // Sort by date since we lost the server-side sorting
-            usort($filteredEvents, function($a, $b) {
-                $dateA = new DateTime($a->anlassDatumVon);
-                $dateB = new DateTime($b->anlassDatumVon);
-                return $dateA <=> $dateB;
             });
             
             return array_values($filteredEvents);
             
         } catch (Exception $e) {
-            mtrace("Error retrieving events for Veranstalter {$veranstalter}: " . $e->getMessage());
-            throw new moodle_exception(
-                'eventoapierror',
-                'local_evento',
-                '',
-                sprintf(self::ERROR_MESSAGES['SOAP_REQUEST'], 'Error retrieving events by year')
-            );
+            $this->trace->output("Error getting events: " . $e->getMessage());
+            return [];
         }
     }
+
 }
