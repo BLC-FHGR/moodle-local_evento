@@ -8,11 +8,11 @@ The Local Evento plugin has been refactored to enhance SOAP request handling and
 
 ### 1. Evento Service (`local_evento_evento_service`)
 
-The central component remains `local_evento_evento_service`. New helper classes have been introduced to handle data transformations, security checks, and to further decouple SOAP call logic from business rules.
+The central component remains `local_evento_evento_service`. Minor updates have been made to its implementation to improve performance and error handling. No new helper classes or modules have been introduced.
 
 #### Key Responsibilities:
 - Establishing and maintaining SOAP connections
-- Executing SOAP requests with error handling and retry logic
+- Executing SOAP requests with enhanced error handling and retry logic
 - Converting data formats between systems
 - Providing methods to retrieve various types of data:
   - Events (by ID or number)
@@ -22,7 +22,7 @@ The central component remains `local_evento_evento_service`. New helper classes 
   - Organizational units (Veranstalter)
 
 #### Notable Methods:
-- `execute_soap_request()`: Core method for making SOAP calls with error handling
+- `execute_soap_request()`: Core method for making SOAP calls with improved error handling
 - `get_event_by_id()`, `get_event_by_number()`: Retrieve event information
 - `get_enrolments_by_eventid()`: Get enrollment data for an event
 - `get_all_ad_accounts()`: Retrieve all user accounts from Evento
@@ -134,7 +134,4 @@ To use this plugin, the following must be configured:
 - Automated synchronization scheduling
 - Additional security audits for system boundaries
 - More advanced batch scheduling via Moodle's task system
-**Clarifying Questions**  
-1. Which new helper classes should be emphasized for advanced troubleshooting?  
-2. Are there any new configuration or environment variables we need to highlight for partial sync?  
-3. Should we include usage examples or references for external plugin architecture integration?  
+
