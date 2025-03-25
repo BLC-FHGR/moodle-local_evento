@@ -21,15 +21,16 @@ This is the core service class that handles all direct communication with the Ev
 ```
 
 - **Initialization**: The service creates a SoapClient instance during construction
-- **Request Execution**: All API calls are routed through the `execute_soap_request()` method
-- **Error Handling**: SOAP faults are caught and processed by `handle_soap_error()`
-- **Performance Monitoring**: Each request is timed and logged via `log_sync_operation()`
+- **Request Execution**: All API calls are routed through the `executeSoapRequest()` method
+- **Error Handling**: SOAP faults are caught and processed by `handleSoapError()`
+- **Performance Monitoring**: Each request is timed and logged via `logSyncOperation()`
 
 ### 2. Data Retrieval Services
 
 The service provides specialized methods for retrieving different types of data:
 
 #### Event Data Services
+
 ```
 ┌─────────────────────────┐
 │local_evento_evento_service│
@@ -39,14 +40,15 @@ The service provides specialized methods for retrieving different types of data:
 ┌─────────────────────────┐
 │    Event Data Methods   │
 ├─────────────────────────┤
-│  get_event_by_id()      │
-│  get_event_by_number()  │
-│  get_events_by_veranstalter() │
-│  get_events_by_veranstalter_years() │
+│  getEventById()         │
+│  getEventByNumber()     │
+│  getEventsByVeranstalter() │
+│  getEventsByVeranstalterYears() │
 └─────────────────────────┘
 ```
 
 #### User Account Services
+
 ```
 ┌─────────────────────────┐
 │local_evento_evento_service│
@@ -56,15 +58,16 @@ The service provides specialized methods for retrieving different types of data:
 ┌─────────────────────────┐
 │  User Account Methods   │
 ├─────────────────────────┤
-│  get_all_ad_accounts()  │
-│  get_student_ad_accounts() │
-│  get_lecturer_ad_accounts() │
-│  get_employee_ad_accounts() │
-│  get_ad_accounts_by_evento_personid() │
+│  getAllAdAccounts()     │
+│  getStudentAdAccounts() │
+│  getLecturerAdAccounts()│
+│  getEmployeeAdAccounts()│
+│  getAdAccountsByEventoPersonId() │
 └─────────────────────────┘
 ```
 
 #### Person Data Services
+
 ```
 ┌─────────────────────────┐
 │local_evento_evento_service│
@@ -74,11 +77,12 @@ The service provides specialized methods for retrieving different types of data:
 ┌─────────────────────────┐
 │   Person Data Methods   │
 ├─────────────────────────┤
-│  get_person_by_id()     │
+│  getPersonById()        │
 └─────────────────────────┘
 ```
 
 #### Enrollment Services
+
 ```
 ┌─────────────────────────┐
 │local_evento_evento_service│
@@ -88,11 +92,12 @@ The service provides specialized methods for retrieving different types of data:
 ┌─────────────────────────┐
 │   Enrollment Methods    │
 ├─────────────────────────┤
-│get_enrolments_by_eventid()│
+│ getEnrolmentsByEventId()│
 └─────────────────────────┘
 ```
 
 #### Organizational Unit Services
+
 ```
 ┌─────────────────────────┐
 │local_evento_evento_service│
@@ -102,7 +107,7 @@ The service provides specialized methods for retrieving different types of data:
 ┌─────────────────────────┐
 │  Organization Methods   │
 ├─────────────────────────┤
-│  get_active_veranstalter() │
+│  getActiveVeranstalter()│
 └─────────────────────────┘
 ```
 
@@ -119,10 +124,10 @@ The service provides utility methods that support the main functionality:
 ┌─────────────────────────┐
 │     Utility Methods     │
 ├─────────────────────────┤
-│  sid_to_shibbolethid()  │
-│  shibbolethid_to_sid()  │
-│  to_array()             │
-│  process_in_batches()   │
+│  sidToShibbolethId()    │
+│  shibbolethIdToSid()    │
+│  toArray()              │
+│  processInBatches()     │
 └─────────────────────────┘
 ```
 
@@ -137,8 +142,8 @@ The service provides utility methods that support the main functionality:
 ┌─────────────────────────┐      ┌─────────────────┐
 │   Logging & Tracing     │ ──► │  progress_trace  │
 ├─────────────────────────┤      └─────────────────┘
-│  set_trace()            │
-│  log_sync_operation()   │
+│  setTrace()             │
+│  logSyncOperation()     │
 └─────────────────────────┘
 ```
 
@@ -147,22 +152,22 @@ The service provides utility methods that support the main functionality:
 ### Internal Dependencies
 
 1. **Configuration Dependency**:
-   - The service depends on Moodle's configuration system to retrieve connection parameters
-   - Configuration is injected during construction or loaded from global settings
+   - The service depends on Moodle's configuration system to retrieve connection parameters.
+   - Configuration is injected during construction or loaded from global settings.
 
 2. **Tracing Dependency**:
-   - The service uses Moodle's `progress_trace` system for operation tracking
-   - Trace objects can be injected during construction or set via `set_trace()`
+   - The service uses Moodle's `progress_trace` system for operation tracking.
+   - Trace objects can be injected during construction or set via `setTrace()`.
 
 3. **SOAP Client Dependency**:
-   - The service requires a SoapClient instance for API communication
-   - The client can be injected during construction (useful for testing) or created internally
+   - The service requires a SoapClient instance for API communication.
+   - The client can be injected during construction (useful for testing) or created internally.
 
 ### External Dependencies
 
 1. **Evento SOAP API**:
-   - The service depends on the availability of the Evento SOAP API
-   - API endpoints are configured via `wslocation` and `wsuri` settings
+   - The service depends on the availability of the Evento SOAP API.
+   - API endpoints are configured via `wslocation` and `wsuri` settings.
 
 ## Service Interaction Patterns
 
@@ -172,7 +177,7 @@ Most interactions with the service occur through direct method calls:
 
 ```php
 $service = new local_evento_evento_service();
-$event = $service->get_event_by_id(123);
+$event = $service->getEventById(123);
 ```
 
 ### 2. Batch Processing Pattern
@@ -186,19 +191,19 @@ For large datasets, the service uses a batch processing pattern:
             │ call
             ▼
 ┌─────────────────────────┐
-│  get_all_ad_accounts()  │
+│  getAllAdAccounts()     │
 └───────────┬─────────────┘
             │ calls
             ▼
 ┌─────────────────────────┐
-│ get_student_ad_accounts()│
-│ get_lecturer_ad_accounts()│
-│ get_employee_ad_accounts()│
+│ getStudentAdAccounts()  │
+│ getLecturerAdAccounts() │
+│ getEmployeeAdAccounts() │
 └───────────┬─────────────┘
             │ processes results
             ▼
 ┌─────────────────────────┐
-│  process_in_batches()   │
+│  processInBatches()     │
 └─────────────────────────┘
 ```
 
@@ -208,7 +213,7 @@ The service implements a consistent error handling pattern:
 
 ```
 ┌─────────────────────────┐
-│  execute_soap_request() │
+│  executeSoapRequest()   │
 └───────────┬─────────────┘
             │
             ▼
@@ -218,7 +223,7 @@ The service implements a consistent error handling pattern:
             │ on error
             ▼
 ┌─────────────────────────┐
-│   handle_soap_error()   │
+│   handleSoapError()     │
 └───────────┬─────────────┘
             │
             ▼
@@ -238,6 +243,7 @@ The service is configured through Moodle's configuration system:
 ```
 
 Key configuration parameters include:
+
 - `wslocation`: SOAP endpoint URL
 - `wsuri`: SOAP service URI
 - `wstrace`: Enable/disable detailed tracing
