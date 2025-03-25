@@ -2,13 +2,13 @@
 
 ## Overview
 
-The Local Evento plugin provides integration between Moodle and an external Evento system via SOAP web services. It enables synchronization of events, courses, users, and enrollment data between the two systems.
+The Local Evento plugin has been refactored to enhance SOAP request handling and partial data sync capabilities. It continues to integrate Moodle with an external Evento system via SOAP for synchronization of events, courses, users, and enrollment data.
 
 ## Core Components
 
 ### 1. Evento Service (`local_evento_evento_service`)
 
-The central component of the plugin is the `local_evento_evento_service` class, which handles all communication with the Evento SOAP API.
+The central component remains `local_evento_evento_service`. New helper classes have been introduced to handle data transformations, security checks, and to further decouple SOAP call logic from business rules.
 
 #### Key Responsibilities:
 - Establishing and maintaining SOAP connections
@@ -132,3 +132,9 @@ To use this plugin, the following must be configured:
 - Caching strategies for frequently accessed data
 - Enhanced monitoring and reporting capabilities
 - Automated synchronization scheduling
+- Additional security audits for system boundaries
+- More advanced batch scheduling via Moodle's task system
+**Clarifying Questions**  
+1. Which new helper classes should be emphasized for advanced troubleshooting?  
+2. Are there any new configuration or environment variables we need to highlight for partial sync?  
+3. Should we include usage examples or references for external plugin architecture integration?  
