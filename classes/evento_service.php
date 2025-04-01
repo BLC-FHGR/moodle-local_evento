@@ -1,13 +1,40 @@
 <?php
-defined('MOODLE_INTERNAL') || die();
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+
 /**
- * DateTime format of the evento xml dateTime types
+ * Evento service for SOAP API communication.
+ *
+ * @package    local_evento
+ * @copyright  2024 FHGR Julien Rädler
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+defined('MOODLE_INTERNAL') || die();
+
+/**
+ * DateTime format of the Evento XML dateTime types.
  */
 define('LOCAL_EVENTO_DATETIME_FORMAT', "Y-m-d\TH:i:s.uP");
 
 /**
- * Class definition for the evento webservice optimized for batch processing
- * during nightly synchronization jobs
+ * Class definition for the Evento webservice optimized for batch processing
+ * during nightly synchronization jobs.
+ *
+ * This service handles all communication with the Evento SOAP API, providing
+ * methods to retrieve events, enrollments, users, and other data.
  *
  * @package    local_evento
  * @copyright  2024 FHGR Julien Rädler
@@ -38,60 +65,74 @@ class local_evento_evento_service {
     ];
 
     /**
-     * Initialize the service keeping reference to the soap-client
+     * Initialize the service keeping reference to the soap-client.
      *
      * @param SoapClient|null $client Optional SOAP client for testing
      * @param object|null $config Optional config for testing
+     * @param progress_trace|null $trace Optional trace for logging
      */
-    public function __construct($client = null, $config = null, $trace = null) {
+    public function __construct(?SoapClient $client = null, ?object $config = null, ?progress_trace $trace = null) {
         global $CFG;
         
         $this->config = $config ?? get_config('local_evento');
         $this->trace = $trace ?? new null_progress_trace();
         
         if (!$client) {
-            $options = [
-                'location' => $this->config->wslocation,
-                'uri' => $this->config->wsuri,
-                'trace' => $this->config->wstrace,
-                'login' => $this->config->wsusername,
-                'password' => $this->config->wspassword,
-                'connection_timeout' => 30,
-                'features' => SOAP_SINGLE_ELEMENT_ARRAYS,
-                'exceptions' => true
-            ];
-            
-            $wsdl = $CFG->dirroot . "/local/evento/wsdl/" . $this->config->wswsdlfilename;
-            
-            try {
-                $this->client = new SoapClient($wsdl, $options);
-            } catch (SoapFault $fault) {
-                $this->handle_soap_error($fault, self::ERROR_MESSAGES['SOAP_CONNECT']);
-            }
+            $this->initializeSoapClient();
         } else {
             $this->client = $client;
         }
     }
 
     /**
-     * Set trace instance
-     * 
-     * @param progress_trace $trace Trace instance
+     * Initialize the SOAP client with configuration settings.
+     *
+     * @return void
+     * @throws moodle_exception If connection fails
      */
-    public function set_trace($trace) {
+    private function initializeSoapClient(): void {
+        global $CFG;
+        
+        $options = [
+            'location' => $this->config->wslocation,
+            'uri' => $this->config->wsuri,
+            'trace' => $this->config->wstrace,
+            'login' => $this->config->wsusername,
+            'password' => $this->config->wspassword,
+            'connection_timeout' => 30,
+            'features' => SOAP_SINGLE_ELEMENT_ARRAYS,
+            'exceptions' => true
+        ];
+        
+        $wsdl = $CFG->dirroot . "/local/evento/wsdl/" . $this->config->wswsdlfilename;
+        
+        try {
+            $this->client = new SoapClient($wsdl, $options);
+        } catch (SoapFault $fault) {
+            $this->handleSoapError($fault, self::ERROR_MESSAGES['SOAP_CONNECT']);
+        }
+    }
+
+    /**
+     * Set trace instance.
+     * 
+     * @param progress_trace $trace Trace instance for logging
+     * @return void
+     */
+    public function setTrace(progress_trace $trace): void {
         $this->trace = $trace;
     }
 
     /**
-     * Execute a SOAP request with retry logic and detailed logging
+     * Execute a SOAP request with retry logic and detailed logging.
      *
      * @param string $method SOAP method to call
      * @param array $params Parameters for the SOAP call
      * @param string $context Additional context for error messages
      * @return mixed Response from SOAP call
-     * @throws moodle_exception
+     * @throws moodle_exception on persistent failure
      */
-    private function execute_soap_request($method, array $params, $context = '') {
+    private function executeSoapRequest(string $method, array $params, string $context = '') {
         $attempts = 0;
         $starttime = microtime(true);
         
@@ -102,31 +143,31 @@ class local_evento_evento_service {
                 
                 // Log performance metrics for monitoring
                 $duration = microtime(true) - $starttime;
-                $this->log_sync_operation($method, $duration, $attempts, $context);
+                $this->logSyncOperation($method, $duration, $attempts, $context);
                 
                 return $response;
             } catch (SoapFault $fault) {
                 // On final attempt, throw error. Otherwise, retry
                 if ($attempts >= self::MAX_RETRIES) {
-                    $this->handle_soap_error($fault, self::ERROR_MESSAGES['SOAP_REQUEST'], $context);
+                    $this->handleSoapError($fault, self::ERROR_MESSAGES['SOAP_REQUEST'], $context);
                 }
                 // Exponential backoff with jitter to prevent thundering herd
                 $delay = pow(2, $attempts - 1) + (rand(0, 1000) / 1000);
-                mtrace("Evento API retry {$attempts} for {$method} after {$delay}s delay");
+                $this->logMessage("Evento API retry {$attempts} for {$method} after {$delay}s delay");
                 sleep((int)$delay);
             }
         } while ($attempts < self::MAX_RETRIES);
     }
 
     /**
-     * Handle SOAP errors with detailed logging
+     * Handle SOAP errors with detailed logging.
      *
-     * @param SoapFault $fault
-     * @param string $messageTemplate
-     * @param string $context
-     * @throws moodle_exception
+     * @param SoapFault $fault The SOAP fault
+     * @param string $messageTemplate Message template for the error
+     * @param string $context Additional context for error messages
+     * @throws moodle_exception Always throws after logging
      */
-    private function handle_soap_error(SoapFault $fault, $messageTemplate, $context = '') {
+    private function handleSoapError(SoapFault $fault, string $messageTemplate, string $context = ''): void {
         $errordetails = [
             'code' => $fault->faultcode,
             'string' => $fault->faultstring,
@@ -137,7 +178,7 @@ class local_evento_evento_service {
         ];
         
         // Log detailed error for administrators
-        mtrace('Evento SOAP Error: ' . json_encode($errordetails, JSON_PRETTY_PRINT));
+        $this->logMessage('Evento SOAP Error: ' . json_encode($errordetails, JSON_PRETTY_PRINT));
         
         // Throw exception with user-friendly message
         $message = sprintf($messageTemplate, $fault->faultstring);
@@ -145,14 +186,15 @@ class local_evento_evento_service {
     }
 
     /**
-     * Log synchronization operation details
+     * Log synchronization operation details.
      *
-     * @param string $operation
-     * @param float $duration
-     * @param int $attempts
-     * @param string $context
+     * @param string $operation Operation name
+     * @param float $duration Operation duration in seconds
+     * @param int $attempts Number of attempts made
+     * @param string $context Additional context information
+     * @return void
      */
-    private function log_sync_operation($operation, $duration, $attempts, $context = '') {
+    private function logSyncOperation(string $operation, float $duration, int $attempts, string $context = ''): void {
         $message = sprintf(
             'Evento sync operation: %s, Context: %s, Duration: %.4f seconds, Attempts: %d',
             $operation,
@@ -160,55 +202,70 @@ class local_evento_evento_service {
             $duration,
             $attempts
         );
-        mtrace($message);
+        $this->logMessage($message);
+    }
+    
+    /**
+     * Log a message using the appropriate trace mechanism.
+     *
+     * @param string $message The message to log
+     * @param int $level The trace level (default: 1)
+     * @return void
+     */
+    private function logMessage(string $message, int $level = 1): void {
+        if ($this->trace) {
+            $this->trace->output($message, $level);
+        } else {
+            mtrace($message);
+        }
     }
 
     /**
-     * Get event by ID with improved error handling
+     * Get event by ID with improved error handling.
      * 
-     * @param int $eventid The evento event ID
-     * @return stdClass|null Event object
+     * @param int $eventid The Evento event ID
+     * @return stdClass|null Event object or null if not found/error
      */
-    public function get_event_by_id($eventid) {
+    public function getEventById(int $eventid): ?stdClass {
         try {
             $request = [
                 'theEventoAnlassFilter' => ['idAnlass' => $eventid],
                 'theLimitationFilter2' => ['theMaxResultsValue' => 10]
             ];
             
-            $result = $this->execute_soap_request(
+            $result = $this->executeSoapRequest(
                 'listEventoAnlass',
                 $request,
                 "Fetching event ID {$eventid}"
             );
             
             if (!property_exists($result, "return")) {
-                mtrace("No event found for ID {$eventid}");
+                $this->logMessage("No event found for ID {$eventid}");
                 return null;
             }
             
             return is_array($result->return) ? reset($result->return) : $result->return;
             
         } catch (Exception $e) {
-            mtrace("Error fetching event {$eventid}: " . $e->getMessage());
+            $this->logMessage("Error fetching event {$eventid}: " . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Process large datasets in batches
+     * Process large datasets in batches.
      *
      * @param array $items Items to process
      * @param callable $processor Function to process each batch
      * @param string $context Context for logging
      * @return array Processing results
      */
-    private function process_in_batches(array $items, callable $processor, $context = '') {
+    private function processInBatches(array $items, callable $processor, string $context = ''): array {
         $results = [];
         $batches = array_chunk($items, self::BATCH_SIZE);
         
         foreach ($batches as $index => $batch) {
-            mtrace(sprintf(
+            $this->logMessage(sprintf(
                 'Processing batch %d/%d for %s (%d items)',
                 $index + 1,
                 count($batches),
@@ -219,7 +276,7 @@ class local_evento_evento_service {
             try {
                 $results = array_merge($results, $processor($batch));
             } catch (Exception $e) {
-                mtrace(sprintf('Error processing batch %d: %s', $index + 1, $e->getMessage()));
+                $this->logMessage(sprintf('Error processing batch %d: %s', $index + 1, $e->getMessage()));
                 // Continue with next batch instead of failing completely
                 continue;
             }
@@ -229,42 +286,47 @@ class local_evento_evento_service {
     }
 
     /**
-     * Get all enrollments for an event with batched processing
+     * Get all enrollments for an event with batched processing.
      * 
-     * @param string $eventid
-     * @return array
+     * @param int $eventid The event ID
+     * @return array Array of enrollment objects
      */
-    public function get_enrolments_by_eventid($eventid) {
-        $request = [
-            'theEventoPersonenAnmeldungFilter' => ['idAnlass' => $eventid],
-            'theLimitationFilter2' => ['theMaxResultsValue' => self::BATCH_SIZE]
-        ];
-        
-        $result = $this->execute_soap_request(
-            'listEventoPersonenAnmeldung',
-            $request,
-            "Getting enrollments for event {$eventid}"
-        );
-        
-        return property_exists($result, "return") ? self::to_array($result->return) : [];
+    public function getEnrolmentsByEventId(int $eventid): array {
+        try {
+            $request = [
+                'theEventoPersonenAnmeldungFilter' => ['idAnlass' => $eventid],
+                'theLimitationFilter2' => ['theMaxResultsValue' => self::BATCH_SIZE]
+            ];
+            
+            $result = $this->executeSoapRequest(
+                'listEventoPersonenAnmeldung',
+                $request,
+                "Getting enrollments for event {$eventid}"
+            );
+            
+            return property_exists($result, "return") ? $this->toArray($result->return) : [];
+        } catch (Exception $e) {
+            $this->logMessage("Error fetching enrollments for event {$eventid}: " . $e->getMessage());
+            return [];
+        }
     }
 
     /**
-     * Optimized batch retrieval of AD accounts
+     * Optimized batch retrieval of AD accounts.
      * 
-     * @param bool $isactive
-     * @return array
+     * @param bool|null $isactive Only return active accounts if true
+     * @return array Array of AD account objects
      */
-    public function get_all_ad_accounts($isactive = null) {
-        mtrace('Starting batch retrieval of AD accounts...');
+    public function getAllAdAccounts(?bool $isactive = null): array {
+        $this->logMessage('Starting batch retrieval of AD accounts...');
         
         $accounts = [];
         $seen = []; // Track accounts we've already added by objectSid
         $types = ['employee', 'lecturer', 'student'];
         
         foreach ($types as $type) {
-            mtrace("Retrieving {$type} accounts...");
-            $method = "get_{$type}_ad_accounts";
+            $this->logMessage("Retrieving {$type} accounts...");
+            $method = "get{$type}AdAccounts";
             $typeAccounts = $this->$method($isactive);
             
             if ($typeAccounts) {
@@ -278,148 +340,121 @@ class local_evento_evento_service {
             }
         }
         
-        mtrace(sprintf('Retrieved %d total accounts', count($accounts)));
+        $this->logMessage(sprintf('Retrieved %d total accounts', count($accounts)));
         return $accounts;
     }
     
     /**
-     * Get active student AD accounts with optimized batch processing
+     * Get active student AD accounts with optimized batch processing.
      * 
-     * @param bool $isactive Only return active accounts if true
-     * @return array
+     * @param bool|null $isactive Only return active accounts if true
+     * @return array Array of student AD account objects
      */
-    public function get_student_ad_accounts($isactive = null) {
-        $context = "student accounts" . ($isactive ? " (active only)" : "");
-        mtrace("Retrieving {$context}...");
-        
-        $request = [
-            'theADAccount' => ['isStudentAccount' => 1],
-            'theEventoLimitatinFilter1' => ['theMaxResultsValue' => 30000]
-        ];
-        
-        $result = $this->execute_soap_request('listAdAccount', $request, "Fetching {$context}");
-        
-        if (!property_exists($result, "return")) {
-            mtrace("No student accounts found");
-            return [];
-        }
-
-        $accounts = self::to_array($result->return);
-        
-        if ($isactive) {
-            $accounts = array_filter($accounts, function($account) {
-                return $account->accountStatusDisabled == '0';
-            });
-        }
-        
-        mtrace(sprintf("Retrieved %d student accounts", count($accounts)));
-        return $accounts;
+    public function getStudentAdAccounts(?bool $isactive = null): array {
+        return $this->getAccountsByType('student', $isactive);
     }
 
     /**
-     * Get lecturer AD accounts with optimized batch processing
+     * Get lecturer AD accounts with optimized batch processing.
      * 
-     * @param bool $isactive Only return active accounts if true
-     * @return array
+     * @param bool|null $isactive Only return active accounts if true
+     * @return array Array of lecturer AD account objects
      */
-    public function get_lecturer_ad_accounts($isactive = null) {
-        $context = "lecturer accounts" . ($isactive ? " (active only)" : "");
-        mtrace("Retrieving {$context}...");
-        
-        $request = [
-            'theADAccount' => ['isLecturerAccount' => 1],
-            'theEventoLimitatinFilter1' => ['theMaxResultsValue' => 30000]
-        ];
-        
-        $result = $this->execute_soap_request('listAdAccount', $request, "Fetching {$context}");
-        
-        if (!property_exists($result, "return")) {
-            mtrace("No lecturer accounts found");
-            return [];
-        }
-
-        $accounts = self::to_array($result->return);
-        
-        if ($isactive) {
-            $accounts = array_filter($accounts, function($account) {
-                return $account->accountStatusDisabled == '0';
-            });
-        }
-        
-        mtrace(sprintf("Retrieved %d lecturer accounts", count($accounts)));
-        return $accounts;
+    public function getLecturerAdAccounts(?bool $isactive = null): array {
+        return $this->getAccountsByType('lecturer', $isactive);
     }
 
     /**
-     * Get employee AD accounts with optimized batch processing
+     * Get employee AD accounts with optimized batch processing.
      * 
-     * @param bool $isactive Only return active accounts if true
-     * @return array
+     * @param bool|null $isactive Only return active accounts if true
+     * @return array Array of employee AD account objects
      */
-    public function get_employee_ad_accounts($isactive = null) {
-        $context = "employee accounts" . ($isactive ? " (active only)" : "");
-        mtrace("Retrieving {$context}...");
-        
-        $request = [
-            'theADAccount' => ['isEmployeeAccount' => 1],
-            'theEventoLimitatinFilter1' => ['theMaxResultsValue' => 30000]
-        ];
-        
-        $result = $this->execute_soap_request('listAdAccount', $request, "Fetching {$context}");
-        
-        if (!property_exists($result, "return")) {
-            mtrace("No employee accounts found");
-            return [];
-        }
-
-        $accounts = self::to_array($result->return);
-        
-        if ($isactive) {
-            $accounts = array_filter($accounts, function($account) {
-                return $account->accountStatusDisabled == '0';
-            });
-        }
-        
-        mtrace(sprintf("Retrieved %d employee accounts", count($accounts)));
-        return $accounts;
+    public function getEmployeeAdAccounts(?bool $isactive = null): array {
+        return $this->getAccountsByType('employee', $isactive);
     }
 
     /**
-     * Get person details with improved error handling
+     * Generic method to get accounts by type.
      * 
-     * @param string $personid The evento person ID
-     * @return stdClass|null Person object
+     * @param string $type Account type (student, lecturer, employee)
+     * @param bool|null $isactive Only return active accounts if true
+     * @return array Array of AD account objects
      */
-    public function get_person_by_id($personid) {
+    private function getAccountsByType(string $type, ?bool $isactive = null): array {
+        $context = "{$type} accounts" . ($isactive ? " (active only)" : "");
+        $this->logMessage("Retrieving {$context}...");
+        
+        try {
+            $request = [
+                'theADAccount' => ["is{$type}Account" => 1],
+                'theEventoLimitatinFilter1' => ['theMaxResultsValue' => 30000]
+            ];
+            
+            $result = $this->executeSoapRequest('listAdAccount', $request, "Fetching {$context}");
+            
+            if (!property_exists($result, "return")) {
+                $this->logMessage("No {$type} accounts found");
+                return [];
+            }
+
+            $accounts = $this->toArray($result->return);
+            
+            if ($isactive) {
+                $accounts = array_filter($accounts, function($account) {
+                    return $account->accountStatusDisabled == '0';
+                });
+            }
+            
+            $this->logMessage(sprintf("Retrieved %d {$type} accounts", count($accounts)));
+            return $accounts;
+        } catch (Exception $e) {
+            $this->logMessage("Error fetching {$type} accounts: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get person details with improved error handling.
+     * 
+     * @param int $personid The Evento person ID
+     * @return stdClass|null Person object or null if not found/error
+     */
+    public function getPersonById(int $personid): ?stdClass {
         try {
             $request = [
                 'theEventoPersonFilter' => ['idPerson' => $personid],
                 'theLimitationFilter2' => ['theMaxResultsValue' => 10]
             ];
             
-            $result = $this->execute_soap_request(
+            $result = $this->executeSoapRequest(
                 'listEventoPerson',
                 $request,
                 "Fetching person {$personid}"
             );
             
-            return property_exists($result, "return") ? $result->return : null;
+            if (!property_exists($result, "return")) {
+                $this->logMessage("No person found for ID {$personid}");
+                return null;
+            }
+            
+            return is_array($result->return) ? reset($result->return) : $result->return;
             
         } catch (Exception $e) {
-            mtrace("Error fetching person {$personid}: " . $e->getMessage());
+            $this->logMessage("Error fetching person {$personid}: " . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Get AD accounts by evento person ID with improved error handling
+     * Get AD accounts by Evento person ID with improved error handling.
      * 
-     * @param string $personid The evento person ID
+     * @param int $personid The Evento person ID
      * @param bool|null $isactive Filter by active status
      * @param bool|null $isstudent Filter by student status
-     * @return array AD account objects
+     * @return array Array of AD account objects
      */
-    public function get_ad_accounts_by_evento_personid($personid, $isactive = null, $isstudent = null) {
+    public function getAdAccountsByEventoPersonId(int $personid, ?bool $isactive = null, ?bool $isstudent = null): array {
         $context = sprintf(
             "person %s accounts%s%s",
             $personid,
@@ -433,7 +468,7 @@ class local_evento_evento_service {
                 'theEventoLimitatinFilter1' => ['theMaxResultsValue' => 10]
             ];
             
-            $result = $this->execute_soap_request(
+            $result = $this->executeSoapRequest(
                 'listAdAccount',
                 $request,
                 "Fetching {$context}"
@@ -443,7 +478,7 @@ class local_evento_evento_service {
                 return [];
             }
             
-            $accounts = self::to_array($result->return);
+            $accounts = $this->toArray($result->return);
             
             // Apply filters
             if ($isactive || $isstudent) {
@@ -457,90 +492,99 @@ class local_evento_evento_service {
             return $accounts;
             
         } catch (Exception $e) {
-            mtrace("Error fetching {$context}: " . $e->getMessage());
+            $this->logMessage("Error fetching {$context}: " . $e->getMessage());
             return [];
         }
     }
 
     /**
-     * Initialize connection with improved error handling
+     * Initialize connection with improved error handling.
      * 
      * @return bool Success status
      */
-    public function init_call() {
-        mtrace("Initializing Evento connection...");
+    public function initCall(): bool {
+        $this->logMessage("Initializing Evento connection...");
         
         try {
             $request = [
                 'theLimitationFilter2' => ['theMaxResultsValue' => 10]
             ];
             
-            $result = $this->execute_soap_request(
+            $result = $this->executeSoapRequest(
                 'listEventoAnlassTyp',
                 $request,
                 "Connection test"
             );
             
             $success = property_exists($result, "return");
-            mtrace($success ? "Connection initialized successfully" : "Connection test failed");
+            $this->logMessage($success ? "Connection initialized successfully" : "Connection test failed");
             return $success;
             
         } catch (Exception $e) {
-            mtrace("Connection initialization failed: " . $e->getMessage());
+            $this->logMessage("Connection initialization failed: " . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * Get event by number with improved error handling
+     * Get event by number with improved error handling.
      * 
-     * @param string $number The evento event number
-     * @return stdClass|null Event object
+     * @param string $number The Evento event number
+     * @return stdClass|null Event object or null if not found/error
      */
-    public function get_event_by_number($number) {
+    public function getEventByNumber(string $number): ?stdClass {
         try {
             $request = [
                 'theEventoAnlassFilter' => ['anlassNummer' => $number],
                 'theLimitationFilter2' => ['theMaxResultsValue' => 10]
             ];
             
-            $result = $this->execute_soap_request(
+            $result = $this->executeSoapRequest(
                 'listEventoAnlass',
                 $request,
                 "Fetching event {$number}"
             );
             
             if (!property_exists($result, "return")) {
-                mtrace("No event found for number {$number}");
+                $this->logMessage("No event found for number {$number}");
                 return null;
             }
             
-            return $result->return;
+            return is_array($result->return) ? reset($result->return) : $result->return;
             
         } catch (Exception $e) {
-            mtrace("Error fetching event {$number}: " . $e->getMessage());
+            $this->logMessage("Error fetching event {$number}: " . $e->getMessage());
             return null;
         }
     }
 
     /**
-     * Handle ID conversions between systems
+     * Convert Active Directory SID to Shibboleth ID.
+     * 
+     * @param string $sid The Active Directory SID
+     * @return string The Shibboleth ID
      */
-    public function sid_to_shibbolethid($sid) {
+    public function sidToShibbolethId(string $sid): string {
         return trim(str_replace($this->config->adsidprefix, "", $sid) . $this->config->adshibbolethsuffix);
     }
 
-    public function shibbolethid_to_sid($shibbolethid) {
+    /**
+     * Convert Shibboleth ID to Active Directory SID.
+     * 
+     * @param string $shibbolethid The Shibboleth ID
+     * @return string The Active Directory SID
+     */
+    public function shibbolethIdToSid(string $shibbolethid): string {
         return trim($this->config->adsidprefix . str_replace($this->config->adshibbolethsuffix, "", $shibbolethid));
     }
 
     /**
-     * Utility method to ensure consistent array handling
+     * Utility method to ensure consistent array handling.
      * 
-     * @param mixed $value
-     * @return array
+     * @param mixed $value Value to convert to array
+     * @return array The resulting array
      */
-    public static function to_array($value) {
+    public function toArray($value): array {
         if (is_array($value)) {
             return $value;
         }
@@ -551,13 +595,14 @@ class local_evento_evento_service {
     }
 
     /**
-     * Get all active Veranstalter from Evento using the OE endpoint
-     * Used during course creation to determine category structure
+     * Get all active Veranstalter from Evento using the OE endpoint.
+     * Used during course creation to determine category structure.
      * 
      * @return array Array of EventoOE objects
+     * @throws moodle_exception on API error
      */
-    public function get_active_veranstalter() {
-        mtrace("Retrieving Veranstalter from OE endpoint...");
+    public function getActiveVeranstalter(): array {
+        $this->logMessage("Retrieving Veranstalter from OE endpoint...");
         
         try {
             $request = [
@@ -568,18 +613,18 @@ class local_evento_evento_service {
                 ]
             ];
             
-            $result = $this->execute_soap_request(
+            $result = $this->executeSoapRequest(
                 'listEventoOE',
                 $request,
                 "Fetching Veranstalter"
             );
             
             if (!property_exists($result, "return")) {
-                mtrace("No Veranstalter found");
+                $this->logMessage("No Veranstalter found");
                 return [];
             }
             
-            $oeList = self::to_array($result->return);
+            $oeList = $this->toArray($result->return);
             $veranstalter = [];
             
             foreach ($oeList as $oe) {
@@ -606,26 +651,31 @@ class local_evento_evento_service {
             });
             
             $result = array_values($veranstalter);
-            mtrace(sprintf("Retrieved %d Veranstalter", count($result)));
+            $this->logMessage(sprintf("Retrieved %d Veranstalter", count($result)));
             return $result;
             
         } catch (Exception $e) {
-            mtrace("Error retrieving Veranstalter: " . $e->getMessage());
+            $this->logMessage("Error retrieving Veranstalter: " . $e->getMessage());
             throw new moodle_exception('eventoapierror', 'local_evento', '', 
                 sprintf(self::ERROR_MESSAGES['SOAP_REQUEST'], 'Error retrieving Veranstalter'));
         }
     }
 
     /**
-     * Get all events for a specific Veranstalter/OE
+     * Get all events for a specific Veranstalter/OE.
      * 
      * @param string $veranstalter The Veranstalter identifier
      * @param DateTime|null $fromDate Optional start date filter
      * @param DateTime|null $toDate Optional end date filter
      * @return array Array of EventoAnlass objects
+     * @throws moodle_exception on API error
      */
-    public function get_events_by_veranstalter($veranstalter, DateTime $fromDate = null, DateTime $toDate = null) {
-        mtrace("Retrieving events for Veranstalter: {$veranstalter}");
+    public function getEventsByVeranstalter(
+        string $veranstalter, 
+        ?DateTime $fromDate = null, 
+        ?DateTime $toDate = null
+    ): array {
+        $this->logMessage("Retrieving events for Veranstalter: {$veranstalter}");
         
         try {
             // Set default date range if not provided
@@ -643,49 +693,49 @@ class local_evento_evento_service {
                 ]
             ];
             
-            $result = $this->execute_soap_request(
+            $result = $this->executeSoapRequest(
                 'listEventoAnlass',
                 $request,
                 "Fetching events for Veranstalter {$veranstalter}"
             );
             
             if (!property_exists($result, "return")) {
-                mtrace("No events found for Veranstalter {$veranstalter}");
+                $this->logMessage("No events found for Veranstalter {$veranstalter}");
                 return [];
             }
             
-            $events = self::to_array($result->return);
-            mtrace(sprintf("Retrieved %d events for Veranstalter %s", count($events), $veranstalter));
+            $events = $this->toArray($result->return);
+            $this->logMessage(sprintf("Retrieved %d events for Veranstalter %s", count($events), $veranstalter));
             
             return $events;
             
         } catch (Exception $e) {
-            mtrace("Error retrieving events for Veranstalter {$veranstalter}: " . $e->getMessage());
+            $this->logMessage("Error retrieving events for Veranstalter {$veranstalter}: " . $e->getMessage());
             throw new moodle_exception('eventoapierror', 'local_evento', '', 
                 sprintf(self::ERROR_MESSAGES['SOAP_REQUEST'], 'Error retrieving events by Veranstalter'));
         }
     }
 
     /**
-     * Get events for a specific Veranstalter filtered by current and next year
-     * Performs filtering on client side since API doesn't support direct date field filtering
+     * Get events for a specific Veranstalter filtered by current and next year.
+     * Performs filtering on client side since API doesn't support direct date field filtering.
      * 
      * @param string $veranstalter The Veranstalter identifier
      * @return array Array of EventoAnlass objects
      */
-    public function get_events_by_veranstalter_years(string $veranstalter): array {
+    public function getEventsByVeranstalterYears(string $veranstalter): array {
         $currentYear = (int)date('Y');
         $nextYear = $currentYear + 1;
         
-        $this->trace->output("Fetching events for years {$currentYear} and {$nextYear}");
+        $this->logMessage("Fetching events for years {$currentYear} and {$nextYear}");
         
         try {
-            $allEvents = $this->get_events_by_veranstalter($veranstalter);
+            $allEvents = $this->getEventsByVeranstalter($veranstalter);
             
-            // Debug event filtering
+            // Filter events by year
             $filteredEvents = array_filter($allEvents, function($event) use ($currentYear, $nextYear) {
                 if (empty($event->anlassDatumVon)) {
-                    $this->trace->output("Event {$event->anlassNummer} has no start date");
+                    $this->logMessage("Event {$event->anlassNummer} has no start date", 2);
                     return false;
                 }
                 
@@ -694,13 +744,12 @@ class local_evento_evento_service {
                     $eventYear = (int)$eventDate->format('Y');
                     $include = $eventYear === $currentYear || $eventYear === $nextYear;
                     
-                    $this->trace->output("Event {$event->anlassNummer}:");
-                    $this->trace->output("- Date: " . $eventDate->format('Y-m-d'));
-                    $this->trace->output("- Include: " . ($include ? 'yes' : 'no'));
+                    $this->logMessage("Event {$event->anlassNummer}: Date: " . $eventDate->format('Y-m-d') . 
+                                      ", Include: " . ($include ? 'yes' : 'no'), 2);
                     
                     return $include;
                 } catch (Exception $e) {
-                    $this->trace->output("Error parsing date for event {$event->anlassNummer}");
+                    $this->logMessage("Error parsing date for event {$event->anlassNummer}", 2);
                     return false;
                 }
             });
@@ -708,9 +757,8 @@ class local_evento_evento_service {
             return array_values($filteredEvents);
             
         } catch (Exception $e) {
-            $this->trace->output("Error getting events: " . $e->getMessage());
+            $this->logMessage("Error getting events: " . $e->getMessage());
             return [];
         }
     }
-
 }
