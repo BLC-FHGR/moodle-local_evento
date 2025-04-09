@@ -132,11 +132,8 @@ class local_evento_evento_service {
      * @return mixed Response from SOAP call
      * @throws moodle_exception on persistent failure
      */
-<<<<<<< HEAD
-    private function executeSoapRequest(string $method, array $params, string $context = '') {
-=======
+
     public function execute_soap_request($method, array $params, $context = '') {
->>>>>>> b57a0617f1a6d57c190710d537adb017b47da31a
         $attempts = 0;
         $starttime = microtime(true);
         
