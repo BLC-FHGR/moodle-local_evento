@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Mock WSDL for Evento API - For Testing Purposes Only -->
+<definitions name="EventoService" 
+             targetNamespace="http://service.webservice.htwchur.ch"
+             xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="http://service.webservice.htwchur.ch"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+
+    <!-- Types definition -->
+    <types>
+        <xsd:schema targetNamespace="http://service.webservice.htwchur.ch">
+            <!-- Common response type -->
+            <xsd:complexType name="ResponseType">
+                <xsd:sequence>
+                    <xsd:element name="return" type="xsd:anyType" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- AnlassFilter -->
+            <xsd:complexType name="EventoAnlassFilter">
+                <xsd:sequence>
+                    <xsd:element name="idAnlass" type="xsd:int" minOccurs="0"/>
+                    <xsd:element name="anlassNummer" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="anlassVeranstalter" type="xsd:string" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- Limitation filter -->
+            <xsd:complexType name="LimitationFilter">
+                <xsd:sequence>
+                    <xsd:element name="theMaxResultsValue" type="xsd:int" minOccurs="0"/>
+                    <xsd:element name="theFromDate" type="xsd:dateTime" minOccurs="0"/>
+                    <xsd:element name="theToDate" type="xsd:dateTime" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- PersonenAnmeldungFilter -->
+            <xsd:complexType name="EventoPersonenAnmeldungFilter">
+                <xsd:sequence>
+                    <xsd:element name="idAnlass" type="xsd:int" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- PersonFilter -->
+            <xsd:complexType name="EventoPersonFilter">
+                <xsd:sequence>
+                    <xsd:element name="idPerson" type="xsd:int" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- ADAccount -->
+            <xsd:complexType name="ADAccount">
+                <xsd:sequence>
+                    <xsd:element name="idPerson" type="xsd:int" minOccurs="0"/>
+                    <xsd:element name="isStudentAccount" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="isLecturerAccount" type="xsd:string" minOccurs="0"/>
+                    <xsd:element name="isEmployeeAccount" type="xsd:string" minOccurs="0"/>
+                </xsd:sequence>
+            </xsd:complexType>
+            
+            <!-- EmptyFilter -->
+            <xsd:complexType name="EmptyFilter">
+                <xsd:sequence/>
+            </xsd:complexType>
+            
+            <!-- Request types for different operations -->
+            <xsd:element name="listEventoAnlassRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="theEventoAnlassFilter" type="tns:EventoAnlassFilter"/>
+                        <xsd:element name="theLimitationFilter2" type="tns:LimitationFilter" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <xsd:element name="listEventoPersonenAnmeldungRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="theEventoPersonenAnmeldungFilter" type="tns:EventoPersonenAnmeldungFilter"/>
+                        <xsd:element name="theLimitationFilter2" type="tns:LimitationFilter" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <xsd:element name="listEventoPersonRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="theEventoPersonFilter" type="tns:EventoPersonFilter"/>
+                        <xsd:element name="theLimitationFilter2" type="tns:LimitationFilter" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <xsd:element name="listAdAccountRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="theADAccount" type="tns:ADAccount"/>
+                        <xsd:element name="theEventoLimitatinFilter1" type="tns:LimitationFilter" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <xsd:element name="listEventoAnlassTypRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="theLimitationFilter2" type="tns:LimitationFilter" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <xsd:element name="listEventoDeletedRequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="theLimitationFilter2" type="tns:LimitationFilter" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <xsd:element name="listEventoOERequest">
+                <xsd:complexType>
+                    <xsd:sequence>
+                        <xsd:element name="theEventoOEFilter" type="tns:EmptyFilter"/>
+                        <xsd:element name="theLimitationFilter2" type="tns:LimitationFilter" minOccurs="0"/>
+                    </xsd:sequence>
+                </xsd:complexType>
+            </xsd:element>
+            
+            <!-- Response elements -->
+            <xsd:element name="response" type="tns:ResponseType"/>
+        </xsd:schema>
+    </types>
+
+    <!-- Message definitions -->
+    <message name="listEventoAnlassInput">
+        <part name="parameters" element="tns:listEventoAnlassRequest"/>
+    </message>
+    <message name="listEventoAnlassOutput">
+        <part name="parameters" element="tns:response"/>
+    </message>
+    
+    <message name="listEventoPersonenAnmeldungInput">
+        <part name="parameters" element="tns:listEventoPersonenAnmeldungRequest"/>
+    </message>
+    <message name="listEventoPersonenAnmeldungOutput">
+        <part name="parameters" element="tns:response"/>
+    </message>
+    
+    <message name="listEventoPersonInput">
+        <part name="parameters" element="tns:listEventoPersonRequest"/>
+    </message>
+    <message name="listEventoPersonOutput">
+        <part name="parameters" element="tns:response"/>
+    </message>
+    
+    <message name="listAdAccountInput">
+        <part name="parameters" element="tns:listAdAccountRequest"/>
+    </message>
+    <message name="listAdAccountOutput">
+        <part name="parameters" element="tns:response"/>
+    </message>
+    
+    <message name="listEventoAnlassTypInput">
+        <part name="parameters" element="tns:listEventoAnlassTypRequest"/>
+    </message>
+    <message name="listEventoAnlassTypOutput">
+        <part name="parameters" element="tns:response"/>
+    </message>
+    
+    <message name="listEventoDeletedInput">
+        <part name="parameters" element="tns:listEventoDeletedRequest"/>
+    </message>
+    <message name="listEventoDeletedOutput">
+        <part name="parameters" element="tns:response"/>
+    </message>
+    
+    <message name="listEventoOEInput">
+        <part name="parameters" element="tns:listEventoOERequest"/>
+    </message>
+    <message name="listEventoOEOutput">
+        <part name="parameters" element="tns:response"/>
+    </message>
+
+    <!-- Port type definitions -->
+    <portType name="EventoPortType">
+        <operation name="listEventoAnlass">
+            <input message="tns:listEventoAnlassInput"/>
+            <output message="tns:listEventoAnlassOutput"/>
+        </operation>
+        <operation name="listEventoPersonenAnmeldung">
+            <input message="tns:listEventoPersonenAnmeldungInput"/>
+            <output message="tns:listEventoPersonenAnmeldungOutput"/>
+        </operation>
+        <operation name="listEventoPerson">
+            <input message="tns:listEventoPersonInput"/>
+            <output message="tns:listEventoPersonOutput"/>
+        </operation>
+        <operation name="listAdAccount">
+            <input message="tns:listAdAccountInput"/>
+            <output message="tns:listAdAccountOutput"/>
+        </operation>
+        <operation name="listEventoAnlassTyp">
+            <input message="tns:listEventoAnlassTypInput"/>
+            <output message="tns:listEventoAnlassTypOutput"/>
+        </operation>
+        <operation name="listEventoDeleted">
+            <input message="tns:listEventoDeletedInput"/>
+            <output message="tns:listEventoDeletedOutput"/>
+        </operation>
+        <operation name="listEventoOE">
+            <input message="tns:listEventoOEInput"/>
+            <output message="tns:listEventoOEOutput"/>
+        </operation>
+    </portType>
+
+    <!-- Binding definitions -->
+    <binding name="EventoBinding" type="tns:EventoPortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="listEventoAnlass">
+            <soap:operation soapAction=""/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+        <operation name="listEventoPersonenAnmeldung">
+            <soap:operation soapAction=""/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+        <operation name="listEventoPerson">
+            <soap:operation soapAction=""/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+        <operation name="listAdAccount">
+            <soap:operation soapAction=""/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+        <operation name="listEventoAnlassTyp">
+            <soap:operation soapAction=""/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+        <operation name="listEventoDeleted">
+            <soap:operation soapAction=""/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+        <operation name="listEventoOE">
+            <soap:operation soapAction=""/>
+            <input>
+                <soap:body use="literal"/>
+            </input>
+            <output>
+                <soap:body use="literal"/>
+            </output>
+        </operation>
+    </binding>
+
+    <!-- Service definition -->
+    <service name="EventoService">
+        <port name="EventoPort" binding="tns:EventoBinding">
+            <soap:address location="https://test.example.com/soap"/>
+        </port>
+    </service>
+</definitions>
