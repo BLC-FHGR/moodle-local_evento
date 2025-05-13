@@ -32,6 +32,7 @@ use local_evento\api\response_processor;
 use local_evento\cache\cache_manager;
 use local_evento\data\repository;
 use local_evento\log\logger;
+use local_evento\api\filter\array_response_filter;
 
 /**
  * Main service class for Evento integration.
@@ -84,6 +85,7 @@ class service {
 
         // Create response processor
         $this->responseprocessor = new response_processor();
+        $this->responseprocessor->addFilter(new array_response_filter());
         
         // Create or use provided client
         if ($client) {

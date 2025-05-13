@@ -62,47 +62,43 @@ class dev_test extends \core\task\scheduled_task {
             \local_evento\dev\debug_console::log("Connection test result", ["success" => $connected]);
             
             if ($connected) {
-                // Try to fetch some events
+                // Try to fetch some events - with type safety checks
                 \local_evento\dev\debug_console::log("Fetching recent events");
-                $yesterday = new \DateTime('-1 day');
+                $yesterday = new \DateTime('-90 day');
                 $events = $repo->getEvents(
-                    ['anlassVeranstalter' => 'FHGR'], 
+                    ['anlassVeranstalter' => 'ba_arc'], 
                     ['lastChangeDate' => $yesterday, 'maxResults' => 5]
                 );
                 
-                \local_evento\dev\debug_console::log("Recent events fetched", [
-                    "count" => count($events),
-                    "first_few" => array_slice($events, 0, 2)
-                ]);
+                // Check the type before using count()
+                if (is_array($events)) {
+                    \local_evento\dev\debug_console::log("Recent events fetched", [
+                        "count" => count($events),
+                        "first_few" => array_slice($events, 0, 2)
+                    ]);
+                } else {
+                    \local_evento\dev\debug_console::warning("Expected array for events, got " . gettype($events), [
+                        "events_data" => $events
+                    ]);
+                }
                 
                 // If we have events, get enrollments for the first one
-                if (!empty($events)) {
+                if (is_array($events) && !empty($events)) {
                     $eventId = $events[0]->idAnlass;
                     \local_evento\dev\debug_console::log("Fetching enrollments for event $eventId");
                     $enrollments = $repo->getEnrollments($eventId);
                     
-                    \local_evento\dev\debug_console::log("Enrollments fetched", [
-                        "count" => count($enrollments),
-                        "first_few" => array_slice($enrollments, 0, 2)
-                    ]);
-                    
-                    // Get some users
-                    \local_evento\dev\debug_console::log("Fetching users");
-                    $users = $repo->getUsers(['personAktiv' => true], ['maxResults' => 5]);
-                    
-                    \local_evento\dev\debug_console::log("Users fetched", [
-                        "count" => count($users),
-                        "first_few" => array_slice($users, 0, 2)
-                    ]);
-                    
-                    // Get organizational units
-                    \local_evento\dev\debug_console::log("Fetching organizational units");
-                    $orgUnits = $repo->getOrganizationalUnits(['isActiv' => true]);
-                    
-                    \local_evento\dev\debug_console::log("Organizational units fetched", [
-                        "count" => count($orgUnits),
-                        "first_few" => array_slice($orgUnits, 0, 2)
-                    ]);
+                    // Check type before using count()
+                    if (is_array($enrollments)) {
+                        \local_evento\dev\debug_console::log("Enrollments fetched", [
+                            "count" => count($enrollments),
+                            "first_few" => array_slice($enrollments, 0, 2)
+                        ]);
+                    } else {
+                        \local_evento\dev\debug_console::warning("Expected array for enrollments, got " . gettype($enrollments), [
+                            "enrollments_data" => $enrollments
+                        ]);
+                    }
                 }
             } else {
                 \local_evento\dev\debug_console::warning("Connection to Evento API failed");
