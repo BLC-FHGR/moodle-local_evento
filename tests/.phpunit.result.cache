@@ -1,1 +1,0 @@
-{"version":1,"defects":{"evento_client_test::test_list_events":8,"evento_client_test::test_empty_response":8},"times":{"evento_client_test::test_list_events":9.71,"evento_client_test::test_empty_response":9.519}}
