@@ -23,9 +23,6 @@ defined('MOODLE_INTERNAL') || die();
  */
 class array_response_filter implements filter_interface {
     public function apply($response) {
-        // Add debugging to see what comes in and goes out
-        echo "DEBUG Filter input: " . json_encode($response) . "\n";
-        
         // Standard processing
         if (is_object($response) && isset($response->return)) {
             $data = $response->return;
@@ -37,8 +34,6 @@ class array_response_filter implements filter_interface {
             } else {
                 $result = [];
             }
-            
-            echo "DEBUG Filter output: " . json_encode($result) . "\n";
             return $result;
         }
         

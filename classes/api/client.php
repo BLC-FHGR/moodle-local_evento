@@ -139,6 +139,8 @@ class client implements client_interface {
         }
     }
     
+    // In local_evento/classes/api/client.php, modify the execute_with_retry method
+
     private function execute_with_retry($method, $params, $attempt = 1) {
         try {
             $this->logger->debug('Executing SOAP call', [
@@ -146,7 +148,13 @@ class client implements client_interface {
                 'attempt' => $attempt
             ]);
             
+            // Add debug console logging
+            \local_evento\dev\debug_console::soap_request($method, $params);
+            
             $result = $this->soapclient->__soapCall($method, $params);
+            
+            // Add debug console logging for response
+            \local_evento\dev\debug_console::soap_response($method, $result);
             
             $this->logger->debug('SOAP call successful', [
                 'method' => $method
@@ -154,6 +162,13 @@ class client implements client_interface {
             
             return $result;
         } catch (\SoapFault $fault) {
+            // Add debug console error logging
+            \local_evento\dev\debug_console::error("SOAP fault: " . $fault->faultcode, [
+                'method' => $method,
+                'message' => $fault->getMessage(),
+                'detail' => isset($fault->detail) ? $fault->detail : null
+            ]);
+            
             if ($attempt < $this->retrypolicy['max_attempts'] && $this->should_retry($fault, $attempt)) {
                 $delay = $this->retrypolicy['delay'] * pow($this->retrypolicy['multiplier'], $attempt - 1);
                 
