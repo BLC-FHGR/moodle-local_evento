@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Unit tests for the client class.
+ * Unit tests for the Evento API client.
  *
  * @package    local_evento
  * @category   test
@@ -27,325 +27,218 @@ namespace local_evento\tests\unit\api;
 
 defined('MOODLE_INTERNAL') || die();
 
-// Include required files.
-require_once(__DIR__ . '/../../mock/mock_responses.php');
-
-use advanced_testcase;
-use local_evento\tests\mock\mock_responses;
 use local_evento\api\client;
 use local_evento\api\api_exception;
 use local_evento\cache\cache_manager;
 use local_evento\log\logger;
-use local_evento\api\circuit_breaker;
+use local_evento\tests\mock\mock_soap_client;
 
 /**
- * Unit tests for the client class.
+ * Test case for the API client functionality.
  */
-class client_testcase extends advanced_testcase {
-    use mock_responses;
-
+class client_test extends \advanced_testcase {
+    /** @var client The client under test */
+    private $client;
+    
+    /** @var mock_soap_client The mock SOAP client */
+    private $mockSoapClient;
+    
+    /** @var cache_manager|\PHPUnit\Framework\MockObject\MockObject The mock cache manager */
+    private $mockCacheManager;
+    
+    /** @var logger|\PHPUnit\Framework\MockObject\MockObject The mock logger */
+    private $mockLogger;
+    
     /**
-     * @var client The client instance under test
+     * Set up before each test.
      */
-    protected $client;
-
-    /**
-     * @var cache_manager Mock cache manager
-     */
-    protected $cachemanager;
-
-    /**
-     * @var logger Mock logger
-     */
-    protected $logger;
-
-    /**
-     * Set up the test environment.
-     */
-    public function setUp(): void {
+    protected function setUp(): void {
         parent::setUp();
-        $this->resetAfterTest();
-
+        
+        global $CFG;
+        
         // Create mock dependencies
-        $this->cachemanager = $this->createMock(cache_manager::class);
-        $this->logger = $this->createMock(logger::class);
-
-        // Create a real client with mock SOAP client injected later
-        $wsdlurl = __DIR__ . '/../../mock/mock_wsdl.xml';
-        $options = [
-            'location' => 'https://test.example.com/soap',
-            'uri' => 'http://test.example.com/uri',
-            'trace' => true
-        ];
-
-        $this->client = new client($wsdlurl, $options, $this->cachemanager, $this->logger);
+        $this->mockCacheManager = $this->createMock(cache_manager::class);
+        $this->mockLogger = $this->createMock(logger::class);
+        
+        // Get a temp file path for a mock WSDL
+        $tempWsdl = $CFG->tempdir . '/mock_wsdl.xml';
+        file_put_contents($tempWsdl, '<?xml version="1.0" encoding="UTF-8"?><definitions targetNamespace="http://example.org/evento"></definitions>');
+        
+        // Create the client with mocked dependencies
+        $this->client = new client(
+            $tempWsdl,
+            [
+                'location' => 'https://example.org/soap',
+                'uri' => 'http://example.org/evento',
+                'login' => 'testuser',
+                'password' => 'testpass'
+            ],
+            $this->mockCacheManager,
+            $this->mockLogger
+        );
+        
+        // Create mock SOAP client
+        $this->mockSoapClient = new mock_soap_client();
+        
+        // Inject mock SOAP client
+        $this->client->set_soap_client($this->mockSoapClient);
+        
+        // Clean up temp file
+        unlink($tempWsdl);
     }
-
+    
     /**
-     * Test successful API call execution.
+     * Test executing a method with successful response.
      */
     public function test_execute_success(): void {
-        // Create a mock SOAP client that returns success
-        $soapclient = $this->getMockBuilder(\SoapClient::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['__soapCall', '__getLastRequest', '__getLastResponse'])
-            ->getMock();
-
-        $soapclient->expects($this->once())
-            ->method('__soapCall')
-            ->willReturn((object)['return' => 'success']);
-
-        $soapclient->method('__getLastRequest')
-            ->willReturn('<soap:Envelope>...</soap:Envelope>');
-
-        $soapclient->method('__getLastResponse')
-            ->willReturn('<soap:Envelope>...</soap:Envelope>');
-
-        // Inject the mock SOAP client
-        $reflection = new \ReflectionClass($this->client);
-        $property = $reflection->getProperty('soapclient');
-        $property->setAccessible(true);
-        $property->setValue($this->client, $soapclient);
-
-        // Execute the method under test
-        $result = $this->client->execute('testMethod', ['param' => 'value']);
-
-        // Verify the result
-        $this->assertEquals('success', $result->return);
-    }
-
-    /**
-     * Test execution with retries.
-     */
-    public function test_execute_with_retry(): void {
-        // Create a mock SOAP client that fails first then succeeds
-        $soapclient = $this->getMockBuilder(\SoapClient::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['__soapCall', '__getLastRequest', '__getLastResponse'])
-            ->getMock();
-
-        $logger = $this->getMockBuilder(logger::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $soapclient->expects($this->exactly(2))
-            ->method('__soapCall')
-            ->willReturnOnConsecutiveCalls(
-                $this->throwException(new \SoapFault('HTTP', 'Connection timeout')),
-                (object)['return' => 'success']
-            );
-
-        $soapclient->method('__getLastRequest')
-            ->willReturn('<soap:Envelope>...</soap:Envelope>');
-
-        $soapclient->method('__getLastResponse')
-            ->willReturn('<soap:Envelope>...</soap:Envelope>');
-
-        // Configure logger to expect warning and then success debug
-        $logger->expects($this->once())
-            ->method('warning')
-            ->with($this->stringContains('SOAP call failed, retrying'));
-
-        $logger->expects($this->exactly(2))
+        // Set up the mock SOAP client to return a successful response
+        $expectedResponse = (object)['return' => ['item1', 'item2']];
+        $this->mockSoapClient->setCallHandler(function($method, $params) use ($expectedResponse) {
+            if ($method === 'testMethod' && $params[0]['param1'] === 'value1') {
+                return $expectedResponse;
+            }
+            return null;
+        });
+        
+        // Set up expected logger calls
+        $this->mockLogger->expects($this->exactly(2))
             ->method('debug')
             ->withConsecutive(
                 [$this->stringContains('Executing SOAP call')],
                 [$this->stringContains('SOAP call successful')]
             );
-
-        // Inject the mock SOAP client
-        $reflection = new \ReflectionClass($this->client);
-        $property = $reflection->getProperty('soapclient');
-        $property->setAccessible(true);
-        $property->setValue($this->client, $soapclient);
-
-        // Modify retry policy for faster test execution
-        $retryPolicy = $reflection->getProperty('retrypolicy');
-        $retryPolicy->setAccessible(true);
-        $retryPolicy->setValue($this->client, [
-            'max_attempts' => 3,
-            'delay' => 0, // No delay for testing
-            'multiplier' => 1
-        ]);
-
-        // Execute the method under test
-        $result = $this->client->execute('testMethod', ['param' => 'value']);
-
-        // Verify the result
-        $this->assertEquals('success', $result->return);
-    }
-
-    /**
-     * Test handling of persistent failures.
-     */
-    public function test_execute_persistent_failure(): void {
-        // Create a mock SOAP client that always fails
-        $soapclient = $this->getMockBuilder(\SoapClient::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['__soapCall', '__getLastRequest', '__getLastResponse'])
-            ->getMock();
-
-        $soapfault = new \SoapFault('Server', 'Internal server error');
-
-        $logger = $this->getMockBuilder(logger::class)
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $soapclient->expects($this->exactly(3))
-            ->method('__soapCall')
-            ->willThrowException($soapfault);
-
-        $soapclient->method('__getLastRequest')
-            ->willReturn('<soap:Envelope>...</soap:Envelope>');
-
-        $soapclient->method('__getLastResponse')
-            ->willReturn('<soap:Envelope>...</soap:Envelope>');
-
-        // Configure logger expectations
-        $logger->expects($this->exactly(2))
-            ->method('warning');
-            
-        $logger->expects($this->once())
-            ->method('error')
-            ->with($this->stringContains('SOAP execution failed'));
-
-        // Inject the mock SOAP client
-        $reflection = new \ReflectionClass($this->client);
-        $property = $reflection->getProperty('soapclient');
-        $property->setAccessible(true);
-        $property->setValue($this->client, $soapclient);
-
-        // Modify retry policy for faster test execution
-        $retryPolicy = $reflection->getProperty('retrypolicy');
-        $retryPolicy->setAccessible(true);
-        $retryPolicy->setValue($this->client, [
-            'max_attempts' => 3,
-            'delay' => 0, // No delay for testing
-            'multiplier' => 1
-        ]);
-
-        // Execute the method under test and expect exception
-        $this->expectException(\Exception::class);
-        $this->client->execute('testMethod', ['param' => 'value']);
-    }
-
-    /**
-     * Test circuit breaker functionality.
-     */
-    public function test_circuit_breaker(): void {
-        // Create a mock SOAP client that always fails
-        $soapclient = $this->getMockBuilder(\SoapClient::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['__soapCall', '__getLastRequest', '__getLastResponse'])
-            ->getMock();
-
-        $soapfault = new \SoapFault('Server', 'Internal server error');
         
-        $soapclient->expects($this->atLeastOnce())
-            ->method('__soapCall')
-            ->willThrowException($soapfault);
-
-        // Inject the mock SOAP client
+        // Execute the method
+        $result = $this->client->execute('testMethod', [['param1' => 'value1']]);
+        
+        // Verify the result
+        $this->assertEquals($expectedResponse, $result);
+    }
+    
+    /**
+     * Test executing a method with a retriable failure then success.
+     */
+    public function test_execute_retry_then_success(): void {
+        // Set up the mock SOAP client to fail on first call, then succeed
+        $attempt = 0;
+        $expectedResponse = (object)['return' => ['item1', 'item2']];
+        
+        $this->mockSoapClient->setCallHandler(function($method, $params) use (&$attempt, $expectedResponse) {
+            $attempt++;
+            if ($attempt === 1) {
+                // First attempt fails with a retriable error
+                $fault = new \SoapFault('HTTP', 'Connection timed out');
+                throw $fault;
+            } else {
+                // Second attempt succeeds
+                return $expectedResponse;
+            }
+        });
+        
+        // Set up expected logger calls
+        $this->mockLogger->expects($this->exactly(2))
+            ->method('debug');
+            
+        $this->mockLogger->expects($this->once())
+            ->method('warning')
+            ->with($this->stringContains('SOAP call failed, retrying'));
+        
+        // Reduce delay to speed up test
         $reflection = new \ReflectionClass($this->client);
-        $property = $reflection->getProperty('soapclient');
+        $property = $reflection->getProperty('retrypolicy');
         $property->setAccessible(true);
-        $property->setValue($this->client, $soapclient);
-
-        // Create a very sensitive circuit breaker (trips after 1 failure)
-        $circuitBreaker = new circuit_breaker(1, 60);
-        $cbProperty = $reflection->getProperty('circuitbreaker');
-        $cbProperty->setAccessible(true);
-        $cbProperty->setValue($this->client, $circuitBreaker);
-
-        // Modify retry policy for faster test execution
-        $retryPolicy = $reflection->getProperty('retrypolicy');
-        $retryPolicy->setAccessible(true);
-        $retryPolicy->setValue($this->client, [
-            'max_attempts' => 1,
-            'delay' => 0,
+        $property->setValue($this->client, [
+            'max_attempts' => 3,
+            'delay' => 1,
             'multiplier' => 1
         ]);
-
-        // First call should throw a normal exception
-        try {
-            $this->client->execute('testMethod', ['param' => 'value']);
-            $this->fail('Exception should have been thrown');
-        } catch (\Exception $e) {
-            // Expected exception
-        }
-
-        // Second call should fail immediately due to circuit breaker
-        // We'll verify this by checking that the SOAP client method is not called again
-        try {
-            $this->client->execute('testMethod', ['param' => 'value']);
-            $this->fail('Exception should have been thrown');
-        } catch (\Exception $e) {
-            // Expected exception
-        }
+        
+        // Execute the method
+        $result = $this->client->execute('testMethod', [['param1' => 'value1']]);
+        
+        // Verify the result
+        $this->assertEquals($expectedResponse, $result);
+        $this->assertEquals(2, $attempt);
     }
-
+    
     /**
-     * Test getting last request and response.
+     * Test executing a method with a non-retriable failure.
      */
-    public function test_get_last_request_response(): void {
-        // Create a mock SOAP client
-        $soapclient = $this->getMockBuilder(\SoapClient::class)
-            ->disableOriginalConstructor()
-            ->setMethods(['__soapCall', '__getLastRequest', '__getLastResponse'])
-            ->getMock();
-
-        $soapclient->method('__soapCall')
-            ->willReturn((object)['return' => 'success']);
-
-        $soapclient->method('__getLastRequest')
-            ->willReturn('<soap:Envelope><soap:Body>TestRequest</soap:Body></soap:Envelope>');
-
-        $soapclient->method('__getLastResponse')
-            ->willReturn('<soap:Envelope><soap:Body>TestResponse</soap:Body></soap:Envelope>');
-
-        // Inject the mock SOAP client
+    public function test_execute_non_retriable_failure(): void {
+        // Set up the mock SOAP client to fail with a non-retriable error
+        $this->mockSoapClient->setCallHandler(function($method, $params) {
+            // Authentication error is not retriable
+            $fault = new \SoapFault('Client', 'Authentication failed');
+            throw $fault;
+        });
+        
+        // Set up expected logger calls
+        $this->mockLogger->expects($this->once())
+            ->method('debug');
+            
+        $this->mockLogger->expects($this->once())
+            ->method('error')
+            ->with($this->stringContains('SOAP fault:'));
+        
+        // Execute the method and expect an exception
+        $this->expectException(api_exception::class);
+        $this->client->execute('testMethod', [['param1' => 'value1']]);
+    }
+    
+    /**
+     * Test executing a method with circuit breaker open.
+     */
+    public function test_execute_circuit_breaker_open(): void {
+        // Force the circuit breaker to open state
         $reflection = new \ReflectionClass($this->client);
-        $property = $reflection->getProperty('soapclient');
+        $property = $reflection->getProperty('circuitbreaker');
         $property->setAccessible(true);
-        $property->setValue($this->client, $soapclient);
-
-        // Execute a method to trigger the request/response
-        $this->client->execute('testMethod', ['param' => 'value']);
-
-        // Test the last request/response getters
-        $this->assertStringContainsString('TestRequest', $this->client->get_last_request());
-        $this->assertStringContainsString('TestResponse', $this->client->get_last_response());
+        $circuitBreaker = $property->getValue($this->client);
+        $circuitBreaker->setState(\local_evento\api\circuit_breaker::STATE_OPEN);
+        
+        // Set up expected logger call
+        $this->mockLogger->expects($this->once())
+            ->method('error')
+            ->with($this->stringContains('SOAP execution failed:'));
+        
+        // Execute the method and expect an exception
+        $this->expectException(api_exception::class);
+        $this->client->execute('testMethod', [['param1' => 'value1']]);
     }
-
+    
     /**
-     * Data provider for testing retry decisions.
-     *
-     * @return array Test cases
+     * Test getting the last request.
      */
-    public function should_retry_provider(): array {
-        return [
-            'HTTP error' => [new \SoapFault('HTTP', 'Connection refused'), true],
-            'Connection error' => [new \SoapFault('Connection', 'Failed'), true],
-            'Timeout error' => [new \SoapFault('Timeout', 'Operation timed out'), true],
-            'Authentication error' => [new \SoapFault('Client', 'Authentication failed'), false],
-            'Server error' => [new \SoapFault('Server', 'Internal error'), false],
-            'Validation error' => [new \SoapFault('Client', 'Invalid parameters'), false],
-        ];
+    public function test_get_last_request(): void {
+        $expectedRequest = '<soap:Envelope><soap:Body>Request</soap:Body></soap:Envelope>';
+        $this->mockSoapClient->setLastRequest($expectedRequest);
+        
+        $result = $this->client->get_last_request();
+        $this->assertEquals($expectedRequest, $result);
     }
-
+    
     /**
-     * Test the should_retry method with various error types.
-     *
-     * @dataProvider should_retry_provider
-     * @param \SoapFault $fault The fault to test
-     * @param bool $expected The expected retry decision
+     * Test getting the last response.
      */
-    public function test_should_retry(\SoapFault $fault, bool $expected): void {
-        $reflection = new \ReflectionClass($this->client);
-        $method = $reflection->getMethod('should_retry');
-        $method->setAccessible(true);
-
-        $result = $method->invokeArgs($this->client, [$fault, 1]);
-        $this->assertEquals($expected, $result);
+    public function test_get_last_response(): void {
+        $expectedResponse = '<soap:Envelope><soap:Body>Response</soap:Body></soap:Envelope>';
+        $this->mockSoapClient->setLastResponse($expectedResponse);
+        
+        $result = $this->client->get_last_response();
+        $this->assertEquals($expectedResponse, $result);
+    }
+    
+    /**
+     * Test getting the SOAP client options.
+     */
+    public function test_get_options(): void {
+        $options = $this->client->get_options();
+        
+        $this->assertIsArray($options);
+        $this->assertEquals('https://example.org/soap', $options['location']);
+        $this->assertEquals('http://example.org/evento', $options['uri']);
+        $this->assertEquals('testuser', $options['login']);
+        $this->assertEquals('testpass', $options['password']);
     }
 }

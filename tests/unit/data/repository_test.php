@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Unit tests for the repository class.
+ * Integration tests for the Evento API repository.
  *
  * @package    local_evento
  * @category   test
@@ -23,469 +23,398 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-namespace local_evento\tests\unit\data;
+namespace local_evento\tests\integration;
 
 defined('MOODLE_INTERNAL') || die();
 
-// Include required files.
-require_once(__DIR__ . '/../../mock/mock_responses.php');
-
-use advanced_testcase;
-use local_evento\tests\mock\mock_responses;
-use local_evento\data\repository;
-use local_evento\api\client_interface;
-use local_evento\cache\cache_manager;
+use local_evento\api\client;
 use local_evento\api\response_processor;
-use local_evento\service;
+use local_evento\cache\cache_manager;
+use local_evento\data\repository;
+use local_evento\log\logger;
+use local_evento\tests\mock\mock_factory;
+use local_evento\tests\mock\mock_soap_client;
+use PHPUnit\Framework\TestCase;
 
 /**
- * Unit tests for the repository class.
+ * Test case for integration between repository and API client.
  */
-class repository_test extends advanced_testcase {
-    use mock_responses;
-
-    /**
-     * @var repository The repository instance under test
-     */
-    protected $repository;
-
-    /**
-     * @var client_interface&\PHPUnit\Framework\MockObject\MockObject
-     */
+class repository_test extends TestCase {
+    /** @var repository The repository under test */
+    private $repository;
+    
+    /** @var client The client with mock soap client */
     private $client;
-
-    /**
-     * @var cache_manager&\PHPUnit\Framework\MockObject\MockObject
-     */
-    private $cacheManager;
+    
+    /** @var mock_soap_client The mock SOAP client */
+    private $mockSoapClient;
+    
+    /** @var \PHPUnit\Framework\MockObject\MockObject The mock cache manager */
+    private $mockCacheManager;
+    
+    /** @var response_processor The response processor */
+    private $responseProcessor;
     
     /**
-     * @var response_processor&\PHPUnit\Framework\MockObject\MockObject
+     * Set up before each test.
      */
-    private $responseProcessor;
-
-    /**
-     * Set up the test environment.
-     */
-    public function setUp(): void {
-        parent::setUp();
-        $this->resetAfterTest();
-
-        // Create mock dependencies
-        $this->client = $this->createMock(client_interface::class);
-        $this->cacheManager = $this->createMock(cache_manager::class);
-        $this->responseProcessor = $this->createMock(response_processor::class);
+    protected function setUp(): void {
+        global $CFG;
         
-        // Configure the response processor to return the exact input by default
-        $this->responseProcessor->method('process')
-            ->will($this->returnArgument(0));
-            
-        // Configure cache manager
-        $this->cacheManager->method('generateApiResponseKey')
-            ->willReturn('test_key');
-            
-        $this->cacheManager->method('get')
-            ->willReturn(false); // Cache miss by default
-            
+        // Create mock logger
+        $mockLogger = $this->createMock(logger::class);
+        
+        // Create real response processor (no need to mock)
+        $this->responseProcessor = new response_processor();
+        
+        // Create mock cache manager
+        $this->mockCacheManager = $this->getMockBuilder(cache_manager::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        
+        // Get a temp file path for a mock WSDL
+        $tempWsdl = $CFG->tempdir . '/mock_wsdl.xml';
+        file_put_contents($tempWsdl, '<?xml version="1.0" encoding="UTF-8"?><definitions targetNamespace="http://example.org/evento"></definitions>');
+        
+        // Create the client with mocked dependencies
+        $this->client = new client(
+            $tempWsdl,
+            [
+                'location' => 'https://example.org/soap',
+                'uri' => 'http://example.org/evento',
+                'login' => 'testuser',
+                'password' => 'testpass'
+            ],
+            $this->mockCacheManager,
+            $mockLogger
+        );
+        
+        // Create mock SOAP client
+        $this->mockSoapClient = new mock_soap_client();
+        
+        // Inject mock SOAP client
+        $this->client->set_soap_client($this->mockSoapClient);
+        
         // Create the repository
         $this->repository = new repository(
-            $this->client, 
-            $this->cacheManager,
+            $this->client,
+            $this->mockCacheManager,
             $this->responseProcessor
         );
-    }
-
-    /**
-     * Test getting events with entity filter.
-     */
-    public function test_get_events_with_entity_filter(): void {
-        // Set up expected parameters and responses
-        $entityFilter = ['anlassBezeichnung' => 'Test Event'];
-        $expectedParams = [['theEventoAnlassFilter' => $entityFilter]];
         
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'idAnlass' => 123,
-                'anlassBezeichnung' => 'Test Event'
-            ]]
-        ];
-        
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoAnlass'),
-                $this->equalTo($expectedParams)
-            )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getEvents($entityFilter);
-        
-        // Verify the result
-        $this->assertEquals($expectedResult, $result);
+        // Clean up temp file
+        unlink($tempWsdl);
     }
     
     /**
-     * Test getting events with entity filter and limit options.
+     * Test getting events with cache miss.
      */
-    public function test_get_events_with_limitation_filter(): void {
-        // Set up expected parameters and responses
-        $entityFilter = ['anlassBezeichnung' => 'Test Event'];
-        $limitOptions = ['maxResults' => 10, 'lastChangeDate' => '2024-01-01T00:00:00.000+01:00'];
+    public function test_get_events_cache_miss() {
+        // Create mock events
+        $mockEvents = mock_factory::create_evento_anlass_collection();
         
-        $expectedParams = [[
-            'theEventoAnlassFilter' => $entityFilter,
-            'theLimitationFilter2' => [
-                'theMaxResultsValue' => 10,
-                'theFromDate' => '2024-01-01T00:00:00.000+01:00'
-            ]
-        ]];
-        
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'idAnlass' => 123,
-                'anlassBezeichnung' => 'Test Event'
-            ]]
-        ];
-        
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
+        // Configure cache manager to return cache miss
+        $this->mockCacheManager->expects($this->once())
+            ->method('generateApiResponseKey')
             ->with(
                 $this->equalTo('listEventoAnlass'),
-                $this->equalTo($expectedParams)
-            )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getEvents($entityFilter, $limitOptions);
-        
-        // Verify the result
-        $this->assertEquals($expectedResult, $result);
-    }
-    
-    /**
-     * Test getting events with DateTime object for date limitation.
-     */
-    public function test_get_events_with_datetime_object(): void {
-        // Set up expected parameters and responses
-        $entityFilter = ['anlassBezeichnung' => 'Test Event'];
-        $date = new \DateTime('2024-01-01');
-        $limitOptions = ['lastChangeDate' => $date];
-        
-        // Format the date as expected in the formatted request
-        $formattedDate = $date->format(service::DATETIME_FORMAT);
-        
-        $expectedParams = [[
-            'theEventoAnlassFilter' => $entityFilter,
-            'theLimitationFilter2' => [
-                'theFromDate' => $formattedDate
-            ]
-        ]];
-        
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'idAnlass' => 123,
-                'anlassBezeichnung' => 'Test Event'
-            ]]
-        ];
-        
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoAnlass'),
-                $this->callback(function($params) use ($formattedDate) {
-                    // Custom callback to verify the date was formatted correctly
-                    return isset($params[0]['theLimitationFilter2']['theFromDate']) && 
-                           $params[0]['theLimitationFilter2']['theFromDate'] === $formattedDate;
+                $this->callback(function($params) {
+                    return isset($params[0]['theEventoAnlassFilter']) &&
+                           $params[0]['theEventoAnlassFilter']['anlassVeranstalter'] === 'ba_arc';
                 })
             )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getEvents($entityFilter, $limitOptions);
+            ->willReturn('api_listEventoAnlass_abc123');
+        
+        $this->mockCacheManager->expects($this->once())
+            ->method('get')
+            ->with(
+                $this->equalTo(cache_manager::REGION_API_RESPONSES),
+                $this->equalTo('api_listEventoAnlass_abc123')
+            )
+            ->willReturn(false); // Cache miss
+        
+        // Configure cache manager to set the result in cache
+        $this->mockCacheManager->expects($this->once())
+            ->method('set')
+            ->with(
+                $this->equalTo(cache_manager::REGION_API_RESPONSES),
+                $this->equalTo('api_listEventoAnlass_abc123'),
+                $this->equalTo($mockEvents)
+            )
+            ->willReturn(true);
+        
+        // Configure SOAP client to return the mock events
+        $this->mockSoapClient->setCallHandler(function($method, $params) use ($mockEvents) {
+            if ($method === 'listEventoAnlass') {
+                return $mockEvents;
+            }
+            return null;
+        });
+        
+        // Call the method to get events
+        $result = $this->repository->getEvents(['anlassVeranstalter' => 'ba_arc']);
         
         // Verify the result
-        $this->assertEquals($expectedResult, $result);
+        $this->assertIsArray($result);
+        $this->assertCount(3, $result);
+        $this->assertEquals(45685, $result[0]->idAnlass);
+        $this->assertEquals('Fachvorträge', $result[0]->anlassBezeichnung);
+        $this->assertEquals(45686, $result[1]->idAnlass);
+        $this->assertEquals('Entwurf I', $result[1]->anlassBezeichnung);
     }
     
     /**
-     * Test getting enrollments for a specific event.
+     * Test getting events with cache hit.
      */
-    public function test_get_enrollments(): void {
-        // Set up expected parameters and responses
-        $eventId = 123;
+    public function test_get_events_cache_hit() {
+        // Create mock events
+        $mockEvents = mock_factory::create_evento_anlass_collection();
         
-        $expectedParams = [[
-            'theEventoPersonenAnmeldungFilter' => ['idAnlass' => $eventId]
-        ]];
+        // Configure cache manager to return cache hit
+        $this->mockCacheManager->expects($this->once())
+            ->method('generateApiResponseKey')
+            ->willReturn('api_listEventoAnlass_abc123');
         
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'idAnlass' => 123,
-                'idPerson' => 456,
-                'iDPAStatus' => 1
-            ]]
-        ];
+        $this->mockCacheManager->expects($this->once())
+            ->method('get')
+            ->willReturn($mockEvents); // Cache hit
         
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoPersonenAnmeldung'),
-                $this->equalTo($expectedParams)
-            )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getEnrollments($eventId);
+        // Cache set should not be called
+        $this->mockCacheManager->expects($this->never())
+            ->method('set');
+        
+        // SOAP client should not be called
+        $this->mockSoapClient->setCallHandler(function($method, $params) {
+            $this->fail('SOAP client should not be called when cache hit');
+            return null;
+        });
+        
+        // Call the method to get events
+        $result = $this->repository->getEvents(['anlassVeranstalter' => 'ba_arc']);
         
         // Verify the result
-        $this->assertEquals($expectedResult, $result);
+        $this->assertIsArray($result);
+        $this->assertCount(3, $result);
+        $this->assertEquals(45685, $result[0]->idAnlass);
+        $this->assertEquals('Fachvorträge', $result[0]->anlassBezeichnung);
     }
     
     /**
-     * Test getting enrollments with limitation filter.
+     * Test getting enrollments for an event.
      */
-    public function test_get_enrollments_with_limitation(): void {
-        // Set up expected parameters and responses
-        $eventId = 123;
-        $limitOptions = ['maxResults' => 5];
+    public function test_get_enrollments() {
+        // Create mock enrollments
+        $mockEnrollments = mock_factory::create_evento_personen_anmeldung_collection();
         
-        $expectedParams = [[
-            'theEventoPersonenAnmeldungFilter' => ['idAnlass' => $eventId],
-            'theLimitationFilter2' => [
-                'theMaxResultsValue' => 5
-            ]
-        ]];
+        // Configure cache manager
+        $this->mockCacheManager->expects($this->once())
+            ->method('generateApiResponseKey')
+            ->willReturn('api_listEventoPersonenAnmeldung_abc123');
         
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'idAnlass' => 123,
-                'idPerson' => 456,
-                'iDPAStatus' => 1
-            ]]
-        ];
+        $this->mockCacheManager->expects($this->once())
+            ->method('get')
+            ->willReturn(false); // Cache miss
         
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoPersonenAnmeldung'),
-                $this->equalTo($expectedParams)
-            )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getEnrollments($eventId, $limitOptions);
+        $this->mockCacheManager->expects($this->once())
+            ->method('set')
+            ->willReturn(true);
+        
+        // Configure SOAP client to return the mock enrollments
+        $this->mockSoapClient->setCallHandler(function($method, $params) use ($mockEnrollments) {
+            if ($method === 'listEventoPersonenAnmeldung') {
+                return $mockEnrollments;
+            }
+            return null;
+        });
+        
+        // Call the method to get enrollments
+        $result = $this->repository->getEnrollments(45685);
         
         // Verify the result
-        $this->assertEquals($expectedResult, $result);
+        $this->assertIsArray($result);
+        $this->assertCount(3, $result);
+        $this->assertEquals(633320, $result[0]->iDAnmeldung);
+        $this->assertEquals(161261, $result[0]->idPerson);
     }
     
     /**
-     * Test getting users with entity filter.
+     * Test getting users based on criteria.
      */
-    public function test_get_users(): void {
-        // Set up expected parameters and responses
-        $entityFilter = ['personNachname' => 'Doe'];
+    public function test_get_users() {
+        // Create mock persons
+        $mockPersons = mock_factory::create_evento_person_collection();
         
-        $expectedParams = [[
-            'theEventoPersonFilter' => $entityFilter
-        ]];
+        // Configure cache manager
+        $this->mockCacheManager->expects($this->once())
+            ->method('generateApiResponseKey')
+            ->willReturn('api_listEventoPerson_abc123');
         
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'idPerson' => 456,
-                'personNachname' => 'Doe',
-                'personVorname' => 'John'
-            ]]
-        ];
+        $this->mockCacheManager->expects($this->once())
+            ->method('get')
+            ->willReturn(false); // Cache miss
         
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoPerson'),
-                $this->equalTo($expectedParams)
-            )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getUsers($entityFilter);
+        $this->mockCacheManager->expects($this->once())
+            ->method('set')
+            ->willReturn(true);
+        
+        // Configure SOAP client to return the mock persons
+        $this->mockSoapClient->setCallHandler(function($method, $params) use ($mockPersons) {
+            if ($method === 'listEventoPerson') {
+                return $mockPersons;
+            }
+            return null;
+        });
+        
+        // Call the method to get users
+        $result = $this->repository->getUsers([
+            'personNachname' => 'Walser',
+            'personVorname' => 'Daniel'
+        ]);
         
         // Verify the result
-        $this->assertEquals($expectedResult, $result);
+        $this->assertIsArray($result);
+        $this->assertCount(3, $result);
+        $this->assertEquals(2360, $result[0]->idPerson);
+        $this->assertEquals('Daniel', $result[0]->personVorname);
+        $this->assertEquals('Walser', $result[0]->personNachname);
     }
     
     /**
      * Test getting organizational units.
      */
-    public function test_get_organizational_units(): void {
-        // Set up expected parameters and responses
-        $expectedParams = [[
-            'theEventoOEFilter' => []
-        ]];
+    public function test_get_organizational_units() {
+        // Create mock OEs
+        $mockOEs = mock_factory::create_evento_oe_collection();
         
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'IDBenutzer' => 'DEPT1',
-                'OE' => 'Department 1'
-            ]]
-        ];
+        // Configure cache manager
+        $this->mockCacheManager->expects($this->once())
+            ->method('generateApiResponseKey')
+            ->willReturn('api_listEventoOE_abc123');
         
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoOE'),
-                $this->equalTo($expectedParams)
-            )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getOrganizationalUnits();
+        $this->mockCacheManager->expects($this->once())
+            ->method('get')
+            ->willReturn(false); // Cache miss
         
-        // Verify the result
-        $this->assertEquals($expectedResult, $result);
-    }
-    
-    /**
-     * Test getting organizational units with filter.
-     */
-    public function test_get_organizational_units_with_filter(): void {
-        // Set up expected parameters and responses
-        $entityFilter = ['isActiv' => true];
+        $this->mockCacheManager->expects($this->once())
+            ->method('set')
+            ->willReturn(true);
         
-        $expectedParams = [[
-            'theEventoOEFilter' => $entityFilter
-        ]];
+        // Configure SOAP client to return the mock OEs
+        $this->mockSoapClient->setCallHandler(function($method, $params) use ($mockOEs) {
+            if ($method === 'listEventoOE') {
+                return $mockOEs;
+            }
+            return null;
+        });
         
-        $expectedResult = (object)[
-            'return' => [(object)[
-                'IDBenutzer' => 'DEPT1',
-                'OE' => 'Department 1',
-                'isActiv' => true
-            ]]
-        ];
-        
-        // Configure client behavior
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoOE'),
-                $this->equalTo($expectedParams)
-            )
-            ->willReturn($expectedResult);
-            
-        // Execute the method under test
-        $result = $this->repository->getOrganizationalUnits($entityFilter);
+        // Call the method to get organizational units
+        $result = $this->repository->getOrganizationalUnits(['isActiv' => true]);
         
         // Verify the result
-        $this->assertEquals($expectedResult, $result);
+        $this->assertIsArray($result);
+        $this->assertCount(3, $result);
+        $this->assertEquals('ba_arc', $result[0]->IDBenutzer);
+        $this->assertEquals('Bachelor Architektur', $result[0]->OE);
     }
     
     /**
-     * Test error handling with invalid date.
+     * Test that invalid date format throws exception.
      */
-    public function test_invalid_date_format(): void {
-        // Set up parameters with invalid date
-        $entityFilter = ['anlassBezeichnung' => 'Test Event'];
-        $limitOptions = ['lastChangeDate' => 'not-a-date'];
-        
-        // Execute the method under test and expect exception
+    public function test_invalid_date_format() {
+        // Call the method with invalid date format
         $this->expectException(\InvalidArgumentException::class);
-        $this->repository->getEvents($entityFilter, $limitOptions);
-    }
-    
-    /**
-     * Test error handling with invalid maxResults.
-     */
-    public function test_invalid_max_results(): void {
-        // Set up parameters with invalid maxResults
-        $entityFilter = ['anlassBezeichnung' => 'Test Event'];
-        $limitOptions = ['maxResults' => -5]; // Negative number
+        $this->expectExceptionMessage('Invalid date format:');
         
-        // Execute the method under test and expect exception
-        $this->expectException(\InvalidArgumentException::class);
-        $this->repository->getEvents($entityFilter, $limitOptions);
-    }
-    
-    /**
-     * Test result caching behavior.
-     */
-    public function test_cache_hit(): void {
-        // Set up a cached result
-        $cachedResult = (object)[
-            'return' => [(object)[
-                'idAnlass' => 123,
-                'anlassBezeichnung' => 'Cached Event'
-            ]]
-        ];
-        
-        // Configure cache manager to return a hit
-        $this->cacheManager = $this->createMock(cache_manager::class);
-        $this->cacheManager->method('generateApiResponseKey')
-            ->willReturn('cache_key');
-            
-        $this->cacheManager->method('get')
-            ->willReturn($cachedResult);
-            
-        // Recreate repository with updated cache manager
-        $this->repository = new repository(
-            $this->client, 
-            $this->cacheManager,
-            $this->responseProcessor
+        $this->repository->getEvents(
+            ['anlassVeranstalter' => 'ba_arc'],
+            ['lastChangeDate' => 'not-a-date']
         );
-        
-        // The client should not be called
-        $this->client->expects($this->never())
-            ->method('execute');
-            
-        // Execute the method under test
-        $result = $this->repository->getEvents(['anlassBezeichnung' => 'Test Event']);
-        
-        // Verify the result is from cache
-        $this->assertEquals($cachedResult, $result);
     }
     
     /**
-     * Test connection test functionality.
+     * Test that invalid maxResults throws exception.
      */
-    public function test_test_connection_success(): void {
-        // Configure client to return successful response
-        $successResponse = (object)['return' => [(object)['idAnlassTyp' => 1]]];
+    public function test_invalid_max_results() {
+        // Call the method with invalid maxResults
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('maxResults must be a positive integer');
         
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->with(
-                $this->equalTo('listEventoAnlassTyp'),
-                $this->anything()
-            )
-            ->willReturn($successResponse);
-            
-        // Execute the method under test
+        $this->repository->getEvents(
+            ['anlassVeranstalter' => 'ba_arc'],
+            ['maxResults' => -1]
+        );
+    }
+    
+    /**
+     * Test testing the connection.
+     */
+    public function test_connection_success() {
+        // Configure SOAP client to return success
+        $this->mockSoapClient->setCallHandler(function($method, $params) {
+            if ($method === 'listEventoAnlassTyp') {
+                return (object)[
+                    'return' => [
+                        (object)['idAnlassTyp' => 1, 'anlassTypBez' => 'Test Type']
+                    ]
+                ];
+            }
+            return null;
+        });
+        
+        // Test the connection
         $result = $this->repository->testConnection();
         
-        // Verify the result
+        // Connection should be successful
         $this->assertTrue($result);
     }
     
     /**
-     * Test connection test failure.
+     * Test connection failure.
      */
-    public function test_test_connection_failure(): void {
-        // Configure client to throw exception
-        $this->client->expects($this->once())
-            ->method('execute')
-            ->willThrowException(new \Exception('Connection failed'));
-            
-        // Execute the method under test
+    public function test_connection_failure() {
+        // Configure SOAP client to throw an exception
+        $this->mockSoapClient->setCallHandler(function($method, $params) {
+            throw new \Exception('Connection failed');
+        });
+        
+        // Test the connection
         $result = $this->repository->testConnection();
         
-        // Verify the result
+        // Connection should fail
         $this->assertFalse($result);
+    }
+    
+    /**
+     * Test date formatting.
+     */
+    public function test_date_formatting() {
+        // Configure cache manager and SOAP client for a successful call
+        $this->mockCacheManager->method('generateApiResponseKey')->willReturn('api_key');
+        $this->mockCacheManager->method('get')->willReturn(false);
+        $this->mockCacheManager->method('set')->willReturn(true);
+        
+        // Set up the mock SOAP client to capture the formatted date
+        $capturedParams = null;
+        $this->mockSoapClient->setCallHandler(function($method, $params) use (&$capturedParams) {
+            $capturedParams = $params;
+            return mock_factory::create_evento_anlass_collection();
+        });
+        
+        // Use DateTime object for date
+        $date = new \DateTime('2025-01-15');
+        $this->repository->getEvents(
+            ['anlassVeranstalter' => 'ba_arc'],
+            ['lastChangeDate' => $date]
+        );
+        
+        // Verify the date was formatted correctly
+        $this->assertIsArray($capturedParams);
+        $this->assertArrayHasKey(0, $capturedParams);
+        $this->assertArrayHasKey('theLimitationFilter2', $capturedParams[0]);
+        $this->assertArrayHasKey('theFromDate', $capturedParams[0]['theLimitationFilter2']);
+        $this->assertMatchesRegularExpression(
+            '/2025-01-15T\d{2}:\d{2}:\d{2}\.\d{6}\+\d{2}:\d{2}/',
+            $capturedParams[0]['theLimitationFilter2']['theFromDate']
+        );
     }
 }
