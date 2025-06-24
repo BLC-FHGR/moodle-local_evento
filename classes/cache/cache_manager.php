@@ -43,7 +43,7 @@ class cache_manager implements cache_manager_interface {
     const TTL_EVENT_MAPPING = 86400;   // 1 day
     const TTL_USER_MAPPING = 86400;    // 1 day
     
-    private $caches = [];
+    private array $caches = [];
     
     public function __construct() {
         // Initialize the cache stores for each region

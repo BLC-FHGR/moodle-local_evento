@@ -23,8 +23,8 @@ defined('MOODLE_INTERNAL') || die();
  */
 class array_response_filter implements filter_interface {
     public function apply($response) {
-        // Add debugging to see what comes in and goes out
-        echo "DEBUG Filter input: " . json_encode($response) . "\n";
+        // Log the incoming response for debugging purposes.
+        debugging('Filter input: ' . json_encode($response), DEBUG_DEVELOPER);
         
         // Standard processing
         if (is_object($response) && isset($response->return)) {
@@ -38,7 +38,8 @@ class array_response_filter implements filter_interface {
                 $result = [];
             }
             
-            echo "DEBUG Filter output: " . json_encode($result) . "\n";
+            // Log the filtered output when debugging is enabled.
+            debugging('Filter output: ' . json_encode($result), DEBUG_DEVELOPER);
             return $result;
         }
         

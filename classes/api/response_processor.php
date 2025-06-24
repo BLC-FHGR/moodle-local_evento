@@ -27,7 +27,8 @@ namespace local_evento\api;
 defined('MOODLE_INTERNAL') || die();
 
 class response_processor {
-    private $filters = [];
+    /** @var array<filter_interface> */
+    private array $filters = [];
     
     public function addFilter($filter) {
         $this->filters[] = $filter;

@@ -40,13 +40,13 @@ defined('MOODLE_INTERNAL') || die();
  */
 class repository implements repository_interface {
     /** @var client_interface The API client */
-    private $apiClient;
+    private client_interface $apiClient;
     
     /** @var cache_manager The cache manager */
-    private $cacheManager;
+    private cache_manager $cacheManager;
     
     /** @var response_processor The response processor */
-    private $responseProcessor;
+    private response_processor $responseProcessor;
     
     /**
      * Constructor.

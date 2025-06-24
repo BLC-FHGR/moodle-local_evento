@@ -34,22 +34,22 @@ use local_evento\log\logger;
  */
 class client implements client_interface {
     /** @var \SoapClient The underlying SOAP client */
-    private $soapclient;
+    private \SoapClient $soapclient;
     
     /** @var circuit_breaker The circuit breaker for fault tolerance */
-    private $circuitbreaker;
+    private circuit_breaker $circuitbreaker;
     
     /** @var cache_manager The cache manager */
-    private $cachemanager;
+    private cache_manager $cachemanager;
     
     /** @var logger The logger instance */
-    private $logger;
+    private logger $logger;
     
     /** @var array The retry policy configuration */
-    private $retrypolicy;
+    private array $retrypolicy;
 
     /** @var array The SOAP client options */
-    private $options = [];
+    private array $options = [];
 
     /**
      * Constructor.

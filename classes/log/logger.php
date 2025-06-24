@@ -32,10 +32,10 @@ defined('MOODLE_INTERNAL') || die();
  */
 class logger implements logger_interface {
     /** @var \progress_trace The trace instance for real-time output */
-    private $trace;
+    private \progress_trace $trace;
     
     /** @var string The component name for logging */
-    private $component;
+    private string $component;
     
     /** @var array Mapping of log levels to Moodle debug levels */
     const LOG_LEVEL_MAP = [
@@ -165,10 +165,6 @@ class logger implements logger_interface {
             // Use Moodle's debugging function
             debugging($prefixedMessage, $dbgLevel);
             
-            // For error and warning, also write to PHP error log to ensure visibility
-            if ($level === 'error' || $level === 'warning') {
-                error_log($prefixedMessage);
-            }
         }
     }
 

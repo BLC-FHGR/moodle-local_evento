@@ -45,25 +45,25 @@ class service {
     const DATETIME_FORMAT = "Y-m-d\TH:i:s.uP";
     
     /** @var repository The repository instance */
-    private $repository;
+    private repository $repository;
     
     /** @var client The API client instance */
-    private $client;
+    private client $client;
     
     /** @var cache_manager The cache manager instance */
-    private $cachemanager;
+    private cache_manager $cachemanager;
     
     /** @var logger The logger instance */
-    private $logger;
+    private logger $logger;
     
     /** @var object The plugin configuration */
-    private $config;
+    private object $config;
     
     /** @var service Singleton instance */
-    private static $instance;
+    private static ?service $instance = null;
 
     /** @var response_processor The response processor */
-    private $responseprocessor;
+    private response_processor $responseprocessor;
 
     /**
      * Constructor.

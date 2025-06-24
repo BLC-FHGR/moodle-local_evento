@@ -35,19 +35,19 @@ defined('MOODLE_INTERNAL') || die();
  */
 class circuit_breaker {
     /** @var int The current state of the circuit breaker */
-    private $state;
+    private int $state;
 
     /** @var int The number of consecutive failures */
-    private $failurecount;
+    private int $failurecount;
 
     /** @var int The threshold of failures before opening the circuit */
-    private $failurethreshold;
+    private int $failurethreshold;
 
     /** @var int The time in seconds to wait before attempting to close the circuit again */
-    private $resettimeout;
+    private int $resettimeout;
 
     /** @var int Timestamp of the last failure */
-    private $lastfailuretime;
+    private int $lastfailuretime;
 
     /** @var int State constants: circuit is closed (normal operation) */
     const STATE_CLOSED = 0;
