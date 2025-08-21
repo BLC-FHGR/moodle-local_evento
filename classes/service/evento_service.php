@@ -14,19 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace local_evento\service;
+
+use local_evento\dto\course_info;
+use local_evento\dto\enrollment_collection;
+
 /**
- * Version information for Evento
+ * Interface evento_service
+ * Clean Anti-Corruption Layer for Evento SOAP API
  *
  * @package    local_evento
- * @copyright  2025 YOUR NAME <your@email.com>
+ * @copyright  2025 Julien Rädler <julien.raedler@fhgr.ch>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-defined('MOODLE_INTERNAL') || die();
-
-$plugin->component    = 'local_evento';
-$plugin->release      = '2.0';
-$plugin->version      = 2025072900;
-$plugin->requires     = 2025041400;
-$plugin->supported    = [500, 500];
-$plugin->maturity     = MATURITY_STABLE;
+interface evento_service {
+    public function get_course_info(string $anlassnummer): course_info;
+    public function get_enrollments(string $anlassnummer): enrollment_collection;
+    public function is_service_available(): bool;
+}

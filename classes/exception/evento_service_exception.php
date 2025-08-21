@@ -14,23 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace local_evento\exception;
+
 /**
- * Strings for component 'local_evento', language 'de'
+ * Class evento_service_exception
  *
  * @package    local_evento
- * @copyright  2017 HTW Chur Roger Barras
+ * @copyright  2025 YOUR NAME <your@email.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class evento_service_exception extends \Exception {
+    
+    private ?\Throwable $soap_fault;
 
-$string['ad_sidprefix'] = 'Prefix der AD sid';
-$string['ad_sidprefix_desc'] = 'Prefix der AD sid welche nicht Teil der Shibboleth-ID ist';
-$string['ad_shibbolethsuffix'] = 'Suffix der Shibboleth-ID';
-$string['pluginname'] = 'Evento Integration';
-$string['pluginname_desc'] = 'Diese Plugin stellt den Webservicezugriff auf evento bereit';
-$string['ws_location'] = 'Location';
-$string['ws_uri'] = 'URI';
-$string['ws_wsdlfilename'] = 'WSDL Dateiname';
-$string['ws_username'] = 'Benutzername';
-$string['ws_password'] = 'Passwort';
-$string['ws_trace'] = 'Soap tracing';
-$string['ws_trace_desc'] = 'Aktiviere Soap tracing zum Debuggen. Enter 1 zum aktivieren und 0 zum deaktivieren.';
+    public function __construct(string $message, ?\Throwable $previous = null) {
+        parent::__construct($message, 0, $previous);
+        $this->soap_fault = $previous;
+    }
+
+    public function get_soap_fault(): ?\Throwable {
+        return $this->soap_fault;
+    }
+}

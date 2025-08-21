@@ -15,44 +15,85 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Evento plugin settings and presets
+ * TODO describe file settings
  *
  * @package    local_evento
- * @copyright  2017 HTW Chur Roger Barras
+ * @copyright  2025 YOUR NAME <your@email.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-
     $settings = new admin_settingpage('local_evento', get_string('pluginname', 'local_evento'));
     $ADMIN->add('localplugins', $settings);
-    // General Settings.
-    $settings->add(new admin_setting_heading('local_evento_settings', '', get_string('pluginname_desc', 'local_evento')));
-    $settings->add(new admin_setting_configtext('local_evento/wslocation',
-        new lang_string('ws_location', 'local_evento'), '', 'https://ws.fh-htwchur.ch/eventowsblc/services/EventoWebservice', PARAM_URL));
 
-    $settings->add(new admin_setting_configtext('local_evento/wswsdlfilename',
-        new lang_string('ws_wsdlfilename', 'local_evento'), '', 'evento_webservice_v1_1.wsdl', PARAM_TEXT));
+    // Development Console Link
+    if (get_config('local_evento', 'dev_logging_enabled')) {
+        $settings->add(new admin_setting_heading(
+            'local_evento_dev_console', 
+            get_string('dev_console', 'local_evento'),
+            '<a href="' . $CFG->wwwroot . '/local/evento/admin/dev_console.php" class="btn btn-primary">' .
+            get_string('open_dev_console', 'local_evento') . '</a>'
+        ));
+    }
 
-    $settings->add(new admin_setting_configtext('local_evento/wsuri',
-        new lang_string('ws_uri', 'local_evento'), '', '', PARAM_TEXT));
+    // SOAP Configuration
+    $settings->add(new admin_setting_heading(
+        'local_evento_soap', 
+        get_string('soap_settings', 'local_evento'),
+        get_string('soap_settings_desc', 'local_evento')
+    ));
 
-    $settings->add(new admin_setting_configtext('local_evento/wsusername',
-        new lang_string('ws_username', 'local_evento'), '', '', PARAM_TEXT));
+    $settings->add(new admin_setting_configtext(
+        'local_evento/soap_location',
+        get_string('soap_location', 'local_evento'),
+        get_string('soap_location_desc', 'local_evento'),
+        'https://ws.fh-htwchur.ch/eventowsblc/services/EventoWebservice',
+        PARAM_URL
+    ));
 
-    // admin_setting_configpasswordunmask
-    $settings->add(new admin_setting_configpasswordunmask('local_evento/wspassword',
-        new lang_string('ws_password', 'local_evento'), '', '', PARAM_TEXT));
+    $settings->add(new admin_setting_configtext(
+        'local_evento/soap_wsdl',
+        get_string('soap_wsdl', 'local_evento'),
+        get_string('soap_wsdl_desc', 'local_evento'),
+        'evento_webservice_v1_1.wsdl',
+        PARAM_TEXT
+    ));
 
-    $settings->add(new admin_setting_configtext('local_evento/wstrace',
-        new lang_string('ws_trace', 'local_evento'), new lang_string('ws_trace_desc', 'local_evento'), 0, PARAM_INT));
+    $settings->add(new admin_setting_configtext(
+        'local_evento/soap_username',
+        get_string('soap_username', 'local_evento'),
+        get_string('soap_username_desc', 'local_evento'),
+        '',
+        PARAM_TEXT
+    ));
 
-    $settings->add(new admin_setting_configtext('local_evento/adsidprefix',
-        new lang_string('ad_sidprefix', 'local_evento'), new lang_string('ad_sidprefix_desc', 'local_evento'), 'S-1-5-21-', PARAM_TEXT));
+    $settings->add(new admin_setting_configpasswordunmask(
+        'local_evento/soap_password',
+        get_string('soap_password', 'local_evento'),
+        get_string('soap_password_desc', 'local_evento'),
+        ''
+    ));
 
-    $settings->add(new admin_setting_configtext('local_evento/adshibbolethsuffix',
-        new lang_string('ad_shibbolethsuffix', 'local_evento'), '', '@fh-htwchur.ch', PARAM_TEXT));
+    // Development Settings
+    $settings->add(new admin_setting_heading(
+        'local_evento_dev', 
+        get_string('dev_settings', 'local_evento'),
+        get_string('dev_settings_desc', 'local_evento')
+    ));
 
+    $settings->add(new admin_setting_configcheckbox(
+        'local_evento/dev_logging_enabled',
+        get_string('dev_logging', 'local_evento'),
+        get_string('dev_logging_desc', 'local_evento'),
+        0
+    ));
+
+    $settings->add(new admin_setting_configtext(
+        'local_evento/soap_timeout',
+        get_string('soap_timeout', 'local_evento'),
+        get_string('soap_timeout_desc', 'local_evento'),
+        30,
+        PARAM_INT
+    ));
 }

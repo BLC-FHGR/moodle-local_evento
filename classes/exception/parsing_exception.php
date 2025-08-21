@@ -14,19 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace local_evento\exception;
+
 /**
- * Version information for Evento
+ * Class parsing_exception
  *
  * @package    local_evento
  * @copyright  2025 YOUR NAME <your@email.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class parsing_exception extends \Exception {
+    
+    private string $invalid_anlassnummer;
 
-defined('MOODLE_INTERNAL') || die();
+    public function __construct(string $message, string $invalid_anlassnummer = '') {
+        parent::__construct($message);
+        $this->invalid_anlassnummer = $invalid_anlassnummer;
+    }
 
-$plugin->component    = 'local_evento';
-$plugin->release      = '2.0';
-$plugin->version      = 2025072900;
-$plugin->requires     = 2025041400;
-$plugin->supported    = [500, 500];
-$plugin->maturity     = MATURITY_STABLE;
+    public function get_invalid_anlassnummer(): string {
+        return $this->invalid_anlassnummer;
+    }
+}

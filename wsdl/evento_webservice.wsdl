@@ -52,6 +52,21 @@
                     </xs:sequence>
                 </xs:complexType>
             </xs:element>
+            <xs:element name="listEventoOE">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element minOccurs="0" name="theEventoOEFilter" nillable="true" type="ax22:EventoOE"/>
+                        <xs:element minOccurs="0" name="theLimitationFilter2" nillable="true" type="ax22:EventoLimitationFilter2"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="listEventoOEResponse">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element maxOccurs="unbounded" minOccurs="0" name="return" nillable="true" type="ax22:EventoOE"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
             <xs:element name="listEventoDeleted">
                 <xs:complexType>
                     <xs:sequence>
@@ -334,6 +349,19 @@
                     <xs:element minOccurs="0" name="pG_GesVertretung" nillable="true" type="xs:boolean"/>
                 </xs:sequence>
             </xs:complexType>
+            <xs:complexType name="EventoOE">
+                <xs:sequence>
+                    <xs:element minOccurs="0" name="IDBenutzer" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="OE" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="aenderung" nillable="true" type="xs:dateTime"/>
+                    <xs:element minOccurs="0" name="aenderungVon" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="benutzerName" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="benutzerVorname" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="erfassung" nillable="true" type="xs:dateTime"/>
+                    <xs:element minOccurs="0" name="erfassungVon" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="isActiv" nillable="true" type="xs:boolean"/>
+                </xs:sequence>
+            </xs:complexType>
             <xs:complexType name="EventoDeleted">
                 <xs:sequence>
                     <xs:element minOccurs="0" name="deletedAt" nillable="true" type="xs:dateTime"/>
@@ -390,6 +418,7 @@
                     <xs:element minOccurs="0" name="anlassVorlage" nillable="true" type="xs:boolean"/>
                     <xs:element minOccurs="0" name="anlass_ECTS" nillable="true" type="xs:float"/>
                     <xs:element minOccurs="0" name="anlass_EngTextMemo8" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="anlass_IDAnlassModul" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="anlass_IDAnlassStudiengang" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="anlass_Modulart" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="anlass_NurFuerGruppenbildung" nillable="true" type="xs:boolean"/>
@@ -422,6 +451,7 @@
                     <xs:element minOccurs="0" name="aenderungVon" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="benutzerAktiv" nillable="true" type="xs:boolean"/>
                     <xs:element minOccurs="0" name="benutzerArt" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="benutzerIdPerson" nillable="true" type="xs:int"/>
                     <xs:element minOccurs="0" name="benutzerIstVeranstalter" nillable="true" type="xs:boolean"/>
                     <xs:element minOccurs="0" name="benutzerName" nillable="true" type="xs:string"/>
                     <xs:element minOccurs="0" name="erfassung" nillable="true" type="xs:dateTime"/>
@@ -454,6 +484,12 @@
     </wsdl:message>
     <wsdl:message name="listAdAccountResponse">
         <wsdl:part name="parameters" element="ns:listAdAccountResponse"/>
+    </wsdl:message>
+    <wsdl:message name="listEventoOERequest">
+        <wsdl:part name="parameters" element="ns:listEventoOE"/>
+    </wsdl:message>
+    <wsdl:message name="listEventoOEResponse">
+        <wsdl:part name="parameters" element="ns:listEventoOEResponse"/>
     </wsdl:message>
     <wsdl:message name="listEventoAnlassLeitungRequest">
         <wsdl:part name="parameters" element="ns:listEventoAnlassLeitung"/>
@@ -501,6 +537,10 @@
         <wsdl:operation name="listAdAccount">
             <wsdl:input message="ns:listAdAccountRequest" wsaw:Action="urn:listAdAccount"/>
             <wsdl:output message="ns:listAdAccountResponse" wsaw:Action="urn:listAdAccountResponse"/>
+        </wsdl:operation>
+        <wsdl:operation name="listEventoOE">
+            <wsdl:input message="ns:listEventoOERequest" wsaw:Action="urn:listEventoOE"/>
+            <wsdl:output message="ns:listEventoOEResponse" wsaw:Action="urn:listEventoOEResponse"/>
         </wsdl:operation>
         <wsdl:operation name="listEventoAnlassLeitung">
             <wsdl:input message="ns:listEventoAnlassLeitungRequest" wsaw:Action="urn:listEventoAnlassLeitung"/>
@@ -554,6 +594,15 @@
         </wsdl:operation>
         <wsdl:operation name="listAdAccount">
             <soap:operation soapAction="urn:listAdAccount" style="document"/>
+            <wsdl:input>
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
+        <wsdl:operation name="listEventoOE">
+            <soap:operation soapAction="urn:listEventoOE" style="document"/>
             <wsdl:input>
                 <soap:body use="literal"/>
             </wsdl:input>
@@ -645,6 +694,15 @@
                 <soap12:body use="literal"/>
             </wsdl:output>
         </wsdl:operation>
+        <wsdl:operation name="listEventoOE">
+            <soap12:operation soapAction="urn:listEventoOE" style="document"/>
+            <wsdl:input>
+                <soap12:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap12:body use="literal"/>
+            </wsdl:output>
+        </wsdl:operation>
         <wsdl:operation name="listEventoAnlassLeitung">
             <soap12:operation soapAction="urn:listEventoAnlassLeitung" style="document"/>
             <wsdl:input>
@@ -722,6 +780,15 @@
         </wsdl:operation>
         <wsdl:operation name="listAdAccount">
             <http:operation location="listAdAccount"/>
+            <wsdl:input>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:input>
+            <wsdl:output>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:output>
+        </wsdl:operation>
+        <wsdl:operation name="listEventoOE">
+            <http:operation location="listEventoOE"/>
             <wsdl:input>
                 <mime:content type="application/xml" part="parameters"/>
             </wsdl:input>

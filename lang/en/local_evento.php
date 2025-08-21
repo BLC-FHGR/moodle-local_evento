@@ -15,22 +15,41 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Strings for component 'local_evento', language 'en'
+ * English language pack for Evento
  *
  * @package    local_evento
- * @copyright  2017 HTW Chur Roger Barras
+ * @category   string
+ * @copyright  2025 Julien Rädler <julien.raedler@fhgr.ch>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$string['ad_sidprefix'] = 'Prefix of the AD sid';
-$string['ad_sidprefix_desc'] = 'Prefix of the AD sid which is not part of the shibboleth ID';
-$string['ad_shibbolethsuffix'] = 'Suffix of the shibboleth ID';
-$string['pluginname'] = 'Evento Integration';
-$string['pluginname_desc'] = 'This plugin provides the access to the evento SOAP webservice';
-$string['ws_location'] = 'Location';
-$string['ws_uri'] = 'URI';
-$string['ws_wsdlfilename'] = 'WSDL filename';
-$string['ws_username'] = 'Username';
-$string['ws_password'] = 'Password';
-$string['ws_trace'] = 'Soap tracing';
-$string['ws_trace_desc'] = 'Soap tracing for debugging. Enter 1 to enable and 0 to disable.';
+defined('MOODLE_INTERNAL') || die();
+
+$string['pluginname'] = 'Evento Integration V2';
+$string['pluginname_desc'] = 'Clean service layer for Evento SOAP API integration';
+
+// SOAP Settings
+$string['soap_settings'] = 'SOAP API Configuration';
+$string['soap_settings_desc'] = 'Configure connection to Evento SOAP webservice';
+$string['soap_location'] = 'SOAP Location';
+$string['soap_location_desc'] = 'URL of the Evento SOAP webservice endpoint';
+$string['soap_wsdl'] = 'WSDL Filename';
+$string['soap_wsdl_desc'] = 'WSDL file for the Evento webservice (in plugin wsdl/ directory)';
+$string['soap_username'] = 'Username';
+$string['soap_username_desc'] = 'Username for SOAP authentication';
+$string['soap_password'] = 'Password';
+$string['soap_password_desc'] = 'Password for SOAP authentication';
+$string['soap_timeout'] = 'Timeout (seconds)';
+$string['soap_timeout_desc'] = 'SOAP request timeout in seconds';
+
+// Development Settings
+$string['dev_settings'] = 'Development Settings';
+$string['dev_settings_desc'] = 'Settings for development and debugging';
+$string['dev_logging'] = 'Enable Development Logging';
+$string['dev_logging_desc'] = 'Log all API requests/responses for development (disable in production!)';
+
+// Dev Console
+$string['dev_console'] = 'Development Console';
+$string['open_dev_console'] = 'Open Development Console';
+$string['test_anlassnummer'] = 'Test Anlassnummer';
+$string['test_service'] = 'Test Service';
