@@ -29,6 +29,16 @@ define('LOCAL_EVENTO_DATETIME_FORMAT', "Y-m-d\TH:i:s.uP");
  */
 
 class local_evento_evento_service {
+
+    /**
+     * Factor used to turn the float "mbVersion" into a comparable integer.
+     *
+     * A float comparison is unreliable, especially after a roundtrip through the
+     * database. The scaled integer allows an exact equality check and keeps the
+     * natural ordering of the versions.
+     */
+    const MB_VERSION_SCALE = 1000;
+
     // Plugin configuration.
     private $config;
     private $client;
@@ -39,24 +49,68 @@ class local_evento_evento_service {
      * @param SoapClient $client
      */
     public function __construct($client = null) {
-        global $CFG;
-
         $this->config = get_config('local_evento');
 
-        $options = array(
-            'location' => $this->config->wslocation,
-            'uri' => $this->config->wsuri,
-            'trace' => $this->config->wstrace,
-            'login' => $this->config->wsusername,
-            'password' => $this->config->wspassword
-            // 'soap_version' => SOAP_1_2
-        );
-        $wsdl = $CFG->dirroot . "/local/evento/wsdl/" . $this->config->wswsdlfilename;
-
         if (!isset($client)) {
-            $this->client = new SoapClient($wsdl, $options);
+            $this->client = self::create_soap_client(array(), $this->config);
         } else {
             $this->client = $client;
+        }
+    }
+
+    /**
+     * Creates a soap client from the plugin configuration.
+     *
+     * The overrides exist for the cli scripts. They allow a call against another
+     * endpoint or another wsdl file without touching the plugin configuration, which
+     * is shared with enrol_evento and local_eventocoursecreation.
+     *
+     * Note that the "location" option always wins over the service address inside the
+     * wsdl file.
+     *
+     * @param array $overrides values overriding the configuration, allowed keys are
+     *                         "wslocation", "wswsdlfilename" and "wstrace"
+     * @param stdClass|null $config the plugin configuration, read from the database if null
+     * @return SoapClient the soap client
+     * @throws local_evento_service_exception if the wsdl file is missing or the client cannot be built
+     */
+    public static function create_soap_client(array $overrides = array(), $config = null) {
+        global $CFG;
+
+        if (is_null($config)) {
+            $config = get_config('local_evento');
+        }
+
+        // On a fresh installation none of the settings has been saved yet, so do not
+        // assume that the configuration object carries the properties.
+        $wsdlfilename = $overrides['wswsdlfilename'] ?? ($config->wswsdlfilename ?? '');
+        // Never let an override escape the wsdl folder of the plugin.
+        $wsdlfilename = basename($wsdlfilename);
+        $wsdl = $CFG->dirroot . "/local/evento/wsdl/" . $wsdlfilename;
+        if ($wsdlfilename === '' || !is_readable($wsdl)) {
+            debugging("Error, the evento wsdl file '{$wsdl}' does not exist or is not readable.");
+            throw new local_evento_service_exception('create_soap_client', null,
+                "The wsdl file '{$wsdlfilename}' does not exist or is not readable.");
+        }
+
+        $options = array(
+            'location' => $overrides['wslocation'] ?? ($config->wslocation ?? ''),
+            'uri' => $config->wsuri ?? '',
+            'trace' => $overrides['wstrace'] ?? ($config->wstrace ?? 0),
+            'login' => $config->wsusername ?? '',
+            'password' => $config->wspassword ?? ''
+            // 'soap_version' => SOAP_1_2
+        );
+
+        try {
+            return new SoapClient($wsdl, $options);
+        } catch (SoapFault $fault) {
+            $faultcode = isset($fault->faultcode) ? (string)$fault->faultcode : null;
+            debugging("Error, could not create the evento soap client from '{$wsdl}': " . $fault->getMessage());
+            throw new local_evento_service_exception('create_soap_client', $faultcode, $fault->getMessage(), $fault);
+        } catch (Throwable $ex) {
+            debugging("Error, could not create the evento soap client from '{$wsdl}': {$ex->getMessage()}");
+            throw new local_evento_service_exception('create_soap_client', null, $ex->getMessage(), $ex);
         }
     }
 
@@ -116,6 +170,157 @@ class local_evento_evento_service {
         $result = $this->client->listEventoAnlass($request);
 
         return property_exists($result,"return") ? $result->return : null;
+    }
+
+    /**
+     * Obtains the module description of an event by the id-number.
+     *
+     * The webservice answers with at most one description, it selects the matching
+     * record itself. According to the service owner the description returned belongs
+     * to the main event (the module), not to the individual course run.
+     *
+     * The return value is the untouched object from the SOAP response. Use
+     * {@see self::normalize_modulbeschreibung()} to obtain comparable values.
+     *
+     * @param string $anlassnummer the evento event-number like "mod.boek-LEAD2.HS26_BS.001"
+     * @return stdClass|null module description object "EventoModulBeschreibung" defined in the wsdl,
+     *                       null if the number is empty or the service knows no description for it
+     * @throws local_evento_service_exception if the webservice call itself failed
+     */
+    public function get_modulbeschreibung_by_number(string $anlassnummer): ?stdClass {
+        $anlassnummer = trim($anlassnummer);
+        // An empty number would make the service return an arbitrary or empty result, so do not even ask.
+        if ($anlassnummer === '') {
+            return null;
+        }
+
+        // Set request filter. This operation has no limitation filter.
+        $request['anlassNummer'] = $anlassnummer;
+        $result = $this->call('getEventoModulBeschreibung', $request);
+
+        return (is_object($result) && property_exists($result, "return")) ? $result->return : null;
+    }
+
+    /**
+     * Obtains the list of the evento status values.
+     *
+     * Useful to resolve a numeric status id into its name.
+     *
+     * @param int|null $idanlasstyp restrict the list to this event type, see local_evento_idanlasstyp;
+     *                              default null to get all status values
+     * @return array of stdClass status object "EventoStatus" defined in the wsdl
+     * @throws local_evento_service_exception if the webservice call itself failed
+     */
+    public function get_status_list($idanlasstyp = null): array {
+        // Set request filter.
+        if (!empty($idanlasstyp)) {
+            $request['theEventoAnlassTypFilter']['idAnlassTyp'] = $idanlasstyp;
+        }
+        // To limit the response size if something went wrong.
+        $request['theLimitationFilter2']['theMaxResultsValue'] = 1000;
+        $result = $this->call('listEventoStatus', $request);
+
+        return self::to_array((is_object($result) && property_exists($result, "return")) ? $result->return : null);
+    }
+
+    /**
+     * Executes a webservice operation and turns any failure into a service exception.
+     *
+     * A missing result is not a failure and is left to the calling method, an empty
+     * response simply means that the service knows no matching record.
+     *
+     * @param string $operation name of the webservice operation
+     * @param array $request the request as expected by the operation
+     * @return mixed the raw response of the soap client
+     * @throws local_evento_service_exception if the webservice call failed
+     */
+    protected function call($operation, array $request) {
+        try {
+            return $this->client->$operation($request);
+        } catch (SoapFault $fault) {
+            $faultcode = isset($fault->faultcode) ? (string)$fault->faultcode : null;
+            debugging("Error, the evento webservice call '{$operation}' failed with the faultcode '"
+                . ($faultcode ?? '-') . "': " . $fault->getMessage());
+            throw new local_evento_service_exception($operation, $faultcode, $fault->getMessage(), $fault);
+        } catch (Throwable $ex) {
+            debugging("Error, the evento webservice call '{$operation}' failed: {$ex->getMessage()}");
+            throw new local_evento_service_exception($operation, null, $ex->getMessage(), $ex);
+        }
+    }
+
+    /**
+     * Converts a module description into comparable values.
+     *
+     * The properties of the returned object are lowercase to follow the Moodle
+     * naming style and to keep them apart from the raw webservice properties.
+     *
+     * @param stdClass|null $modulbeschreibung module description object "EventoModulBeschreibung"
+     * @return stdClass|null object with the normalized values or null if there is nothing to normalize
+     */
+    public static function normalize_modulbeschreibung($modulbeschreibung): ?stdClass {
+        if (!is_object($modulbeschreibung)) {
+            return null;
+        }
+
+        $normalized = new stdClass();
+        $normalized->idanlass = self::to_int($modulbeschreibung->idAnlass ?? null);
+        $normalized->idmb = self::to_int($modulbeschreibung->idMB ?? null);
+        $normalized->idstatus = self::to_int($modulbeschreibung->idStatus ?? null);
+
+        $mbtext = $modulbeschreibung->mbText ?? null;
+        $normalized->mbtext = is_null($mbtext) ? null : (string)$mbtext;
+
+        // Keep the raw value, the scaled integer is the one to store and to compare.
+        $mbversion = $modulbeschreibung->mbVersion ?? null;
+        if (is_numeric($mbversion)) {
+            $normalized->mbversion = (float)$mbversion;
+            $normalized->mbversionscaled = (int)round($normalized->mbversion * self::MB_VERSION_SCALE);
+            $normalized->mbversionstring = sprintf('%.3F', $normalized->mbversion);
+        } else {
+            $normalized->mbversion = null;
+            $normalized->mbversionscaled = null;
+            $normalized->mbversionstring = null;
+        }
+
+        // The soap client hands over a xs:dateTime as a plain string, keep it for the logs.
+        $mbgueltigab = $modulbeschreibung->mbGueltigAb ?? null;
+        $normalized->mbgueltigabraw = is_null($mbgueltigab) ? null : (string)$mbgueltigab;
+        $normalized->mbgueltigab = self::evento_datetime_to_timestamp($mbgueltigab);
+
+        return $normalized;
+    }
+
+    /**
+     * Converts an evento xml dateTime value into a unix timestamp.
+     *
+     * Do not use LOCAL_EVENTO_DATETIME_FORMAT with createFromFormat() here. That format
+     * requires the fractional seconds, which the service does not necessarily send.
+     *
+     * @param string|null $value the xml dateTime value
+     * @return int|null the unix timestamp or null if the value is empty or unparsable
+     */
+    public static function evento_datetime_to_timestamp($value): ?int {
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+        try {
+            $datetime = new DateTimeImmutable($value);
+        } catch (Throwable $ex) {
+            debugging("Error, could not parse the evento dateTime value '{$value}': {$ex->getMessage()}");
+            return null;
+        }
+
+        return $datetime->getTimestamp();
+    }
+
+    /**
+     * Converts a value into an integer, keeping null as null.
+     *
+     * @param mixed $value
+     * @return int|null the integer value or null if the value is null or not numeric
+     */
+    protected static function to_int($value): ?int {
+        return is_numeric($value) ? (int)$value : null;
     }
 
     /**

@@ -26,6 +26,18 @@ possible by changing the setting "WSDL-filename" alone.
 | `evento_webservice_v1_1.wsdl` | Previous version, rollback target. |
 | `evento_webservice_v1.wsdl` | Initial version. |
 
+## CLI tools
+
+Both scripts accept `--wslocation` and `--wsdl` to query another endpoint or another
+contract for that single call. Use them instead of changing the plugin settings, which
+are shared with `enrol_evento` and `local_eventocoursecreation`.
+
+    # Read a module description and print it including the php data types.
+    sudo -u www-data /usr/bin/php local/evento/cli/get_modulbeschreibung.php --help
+
+    # Print the status list, to resolve a numeric status id into its name.
+    sudo -u www-data /usr/bin/php local/evento/cli/list_status.php --help
+
 ## License
 
 * Copyright (C) HTW Chur

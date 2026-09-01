@@ -25,6 +25,7 @@
 $string['ad_sidprefix'] = 'Prefix der AD sid';
 $string['ad_sidprefix_desc'] = 'Prefix der AD sid welche nicht Teil der Shibboleth-ID ist';
 $string['ad_shibbolethsuffix'] = 'Suffix der Shibboleth-ID';
+$string['error_servicecall'] = 'Der Aufruf "{$a->operation}" des Evento-Webservice ist fehlgeschlagen. Faultcode: {$a->faultcode}. Meldung: {$a->faultstring}';
 $string['pluginname'] = 'Evento Integration';
 $string['pluginname_desc'] = 'Diese Plugin stellt den Webservicezugriff auf evento bereit';
 $string['ws_location'] = 'Location';
