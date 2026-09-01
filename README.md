@@ -12,6 +12,20 @@ The plugin need the following settings:
 * AD SID: SID prefix, which is not part of the shibboleth ID
 * shibboleth ID suffix: Suffix to create the shibboleth ID 
 
+Note that the setting "Location" always overrides the service address contained in the
+WSDL file. The WSDL file only defines the contract, never the endpoint that is called.
+
+## WSDL versions
+
+The folder `wsdl` keeps every WSDL version that has been in use, so that a rollback is
+possible by changing the setting "WSDL-filename" alone.
+
+| File | Contents |
+| --- | --- |
+| `evento_webservice_v1_2.wsdl` | Current. Adds `getEventoModulBeschreibung` and `listEventoOE`, adds `EventoAnlass.anlass_IDAnlassModul` and `EventoBenutzer.benutzerIdPerson`, removes `EventoAnlass.anlass_IDAnlassStudiengang`, `EventoAdresse.adr_URL` and `EventoPerson.person_MWSTNr`. |
+| `evento_webservice_v1_1.wsdl` | Previous version, rollback target. |
+| `evento_webservice_v1.wsdl` | Initial version. |
+
 ## License
 
 * Copyright (C) HTW Chur

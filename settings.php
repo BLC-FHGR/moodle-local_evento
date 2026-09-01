@@ -34,7 +34,8 @@ if ($hassiteconfig) {
         new lang_string('ws_location', 'local_evento'), '', 'https://ws.fh-htwchur.ch/eventowsblc/services/EventoWebservice', PARAM_URL));
 
     $settings->add(new admin_setting_configtext('local_evento/wswsdlfilename',
-        new lang_string('ws_wsdlfilename', 'local_evento'), '', 'evento_webservice_v1_1.wsdl', PARAM_TEXT));
+        new lang_string('ws_wsdlfilename', 'local_evento'), new lang_string('ws_wsdlfilename_desc', 'local_evento'),
+        'evento_webservice_v1_2.wsdl', PARAM_TEXT));
 
     $settings->add(new admin_setting_configtext('local_evento/wsuri',
         new lang_string('ws_uri', 'local_evento'), '', '', PARAM_TEXT));

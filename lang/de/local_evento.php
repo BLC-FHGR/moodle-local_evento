@@ -30,6 +30,7 @@ $string['pluginname_desc'] = 'Diese Plugin stellt den Webservicezugriff auf even
 $string['ws_location'] = 'Location';
 $string['ws_uri'] = 'URI';
 $string['ws_wsdlfilename'] = 'WSDL Dateiname';
+$string['ws_wsdlfilename_desc'] = 'Name der WSDL-Datei im Pluginordner "wsdl". Version 1.2 ergaenzt die Operation getEventoModulBeschreibung und das Feld anlass_IDAnlassModul, dafuer sind anlass_IDAnlassStudiengang, EventoAdresse.adr_URL und EventoPerson.person_MWSTNr entfallen. Fuer ein Rollback hier wieder eine aeltere Datei eintragen. Die Serviceadresse aus der WSDL wird immer durch die Einstellung "Location" ueberschrieben.';
 $string['ws_username'] = 'Benutzername';
 $string['ws_password'] = 'Passwort';
 $string['ws_trace'] = 'Soap tracing';
