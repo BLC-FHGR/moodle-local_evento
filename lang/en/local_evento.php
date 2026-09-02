@@ -25,11 +25,13 @@
 $string['ad_sidprefix'] = 'Prefix of the AD sid';
 $string['ad_sidprefix_desc'] = 'Prefix of the AD sid which is not part of the shibboleth ID';
 $string['ad_shibbolethsuffix'] = 'Suffix of the shibboleth ID';
+$string['error_servicecall'] = 'The evento webservice call "{$a->operation}" failed. Faultcode: {$a->faultcode}. Message: {$a->faultstring}';
 $string['pluginname'] = 'Evento Integration';
 $string['pluginname_desc'] = 'This plugin provides the access to the evento SOAP webservice';
 $string['ws_location'] = 'Location';
 $string['ws_uri'] = 'URI';
 $string['ws_wsdlfilename'] = 'WSDL filename';
+$string['ws_wsdlfilename_desc'] = 'Name of the WSDL file inside the plugin folder "wsdl". Version 1.2 adds the operation getEventoModulBeschreibung and the field anlass_IDAnlassModul, while anlass_IDAnlassStudiengang, EventoAdresse.adr_URL and EventoPerson.person_MWSTNr were removed. Set this back to an older file to roll back. The service address of the WSDL is always overridden by the setting "Location".';
 $string['ws_username'] = 'Username';
 $string['ws_password'] = 'Password';
 $string['ws_trace'] = 'Soap tracing';
