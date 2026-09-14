@@ -21,8 +21,15 @@ defined('MOODLE_INTERNAL') || die();
  *
  * This exception means "the call could not be completed", for example because the
  * service is unreachable, the credentials are wrong or the service answered with a
- * SOAP fault. It does NOT mean "the requested object does not exist"; the service
- * methods return null in that case.
+ * SOAP fault. Wherever evento leaves the choice, "the requested object does not
+ * exist" is not one of its meanings, the service methods return null in that case.
+ *
+ * Evento does not leave the choice everywhere though. Some operations answer a
+ * request for a record they know nothing about with a fault instead of with an empty
+ * response, getEventoModulBeschreibung among them, and they use the same faultcode
+ * they use for a real server problem. Only the message tells the two apart, so it has
+ * to be read: {@see self::means_notfound()} does that, and every caller which would
+ * otherwise take a missing record for a broken service has to ask it.
  *
  * The caller can inspect {@see self::$faultcode} to tell different service side
  * problems apart. The faultcode is null whenever the failure did not originate from
@@ -38,6 +45,17 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class local_evento_service_exception extends moodle_exception {
+
+    /**
+     * Marks in a fault message which mean that evento knows no such record.
+     *
+     * Both are looked for. "DataRetrievalException" is the axis2 class evento raises
+     * when a lookup found nothing, it names no operation and survives a change of
+     * wording. The German wording is what getEventoModulBeschreibung sends today and
+     * is kept as the second mark, so a rename of the exception class does not turn
+     * every missing record into a failure on its own either.
+     */
+    const NOTFOUND_MARKS = array('keine modulbeschreibung gefunden', 'dataretrievalexception');
 
     /** @var string|null The SOAP faultcode, null if the failure was not a SoapFault. */
     public $faultcode = null;
@@ -71,6 +89,42 @@ class local_evento_service_exception extends moodle_exception {
         $a->faultstring = is_null($this->faultstring) ? '-' : $this->faultstring;
 
         parent::__construct('error_servicecall', 'local_evento', '', $a, $this->build_debuginfo($previous));
+    }
+
+    /**
+     * Tells whether this fault only says that evento knows no such record.
+     *
+     * A true answer means the call itself worked and has to be treated like an empty
+     * response, not like a failure: the record is missing, the service is fine. It
+     * must never mark the service as unavailable and it must never make a sync remove
+     * content it wrote earlier.
+     *
+     * @return bool true if the fault is an answer and not a failure
+     */
+    public function means_notfound(): bool {
+        // The faultstring names the real cause, getMessage() is the localised wrapper
+        // around it, which carries the faultstring as well.
+        return self::message_means_notfound($this->faultstring ?? $this->getMessage());
+    }
+
+    /**
+     * Tells whether a fault message only says that evento knows no such record.
+     *
+     * Takes the message itself, for callers which no longer hold the exception, for
+     * example one reading a message back from a log or from a stored error.
+     *
+     * @param string|null $message the fault message of the call
+     * @return bool true if the message is an answer and not a failure
+     */
+    public static function message_means_notfound($message): bool {
+        $message = core_text::strtolower((string)$message);
+        foreach (self::NOTFOUND_MARKS as $mark) {
+            if (strpos($message, $mark) !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

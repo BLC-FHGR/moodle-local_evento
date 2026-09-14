@@ -152,6 +152,22 @@ try {
 try {
     $modulbeschreibung = $service->get_modulbeschreibung_by_number($anlassnummer);
 } catch (local_evento_service_exception $ex) {
+    if ($ex->means_notfound()) {
+        // Evento reports a module without a description with a fault and not with an
+        // empty response. That is an answer, so it is not reported as a failure here
+        // either, otherwise every module without a description looks like an outage.
+        cli_writeln('== No module description ==');
+        cli_writeln('  The service answered with a fault which only says that it knows no module');
+        cli_writeln('  description for this event number. Treat it like an empty response, see');
+        cli_writeln('  local_evento_service_exception::means_notfound().');
+        cli_writeln(sprintf('  %-16s %s', 'faultcode:', is_null($ex->faultcode) ? '(none, not a SoapFault)' : $ex->faultcode));
+        cli_writeln(sprintf('  %-16s %s', 'faultstring:', (string)$ex->faultstring));
+        if (!empty($options['raw'])) {
+            local_evento_cli_print_trace($client);
+        }
+        exit(0);
+    }
+
     cli_writeln('== Service call FAILED ==');
     cli_writeln(sprintf('  %-16s %s', 'operation:', $ex->operation));
     cli_writeln(sprintf('  %-16s %s', 'faultcode:', is_null($ex->faultcode) ? '(none, not a SoapFault)' : $ex->faultcode));
