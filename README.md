@@ -86,6 +86,11 @@ $service = new local_evento_evento_service();
 try {
     $modulbeschreibung = $service->get_modulbeschreibung_by_number($anlassnummer);
 } catch (local_evento_service_exception $ex) {
+    if ($ex->means_notfound()) {
+        // Evento knows no description for this event number and says so with a fault.
+        // An answer, so treat it exactly like the null below.
+        return;
+    }
     // The call failed. $ex->faultcode is the SOAP faultcode, or null when the failure
     // did not originate from a SoapFault. Retry later, do not treat this as "no data".
     return;
@@ -109,9 +114,17 @@ The distinction matters for a sync, so it is deliberate and stable:
   example an unreachable service, wrong credentials or a SOAP fault. It exposes
   `faultcode`, `faultstring`, `operation` and `previousexception`. Every failure is
   also written to the Moodle debug log before the exception is raised.
+* **an exception whose `means_notfound()` is true** means "no data" as well. Evento
+  answers a request for a module it has no description for with a fault and not with
+  an empty response, and it uses the faultcode of a real server problem for it
+  (`soapenv:Server`), so only the message tells the two apart. `means_notfound()`
+  reads it. In practice this, and not the null above, is how a missing description
+  arrives, so a caller which does not ask takes most modules for an outage.
 
 Never treat an exception as "the description was deleted", or a sync will remove
-content whenever the service has a hiccup.
+content whenever the service has a hiccup. Never treat one whose `means_notfound()`
+is true as an outage either, or a single module without a description ends a whole
+synchronisation run.
 
 ### Normalized values
 
